@@ -1,0 +1,299 @@
+export const SAMPLE_YAML = `meta:
+  title: Home Network Topology
+  subtitle: Infrastructure · 2025
+  tags:
+    - 1G FIBER
+    - PROXMOX 8.2
+    - TAILSCALE ACTIVE
+
+networks:
+  - id: lan
+    name: LAN
+    subnet: 10.1.0.0/24
+  - id: home-wifi
+    name: Home WiFi
+    subnet: 10.2.0.0/24
+    dhcp:
+      start: 10.2.0.100
+      end: 10.2.0.200
+  - id: iot
+    name: IoT VLAN
+    subnet: 10.3.0.0/24
+    vlan: 30
+
+groups:
+  - id: network-edge
+    name: Network Edge
+    style: dashed
+    color: "#00e5ff"
+  - id: proxmox-cluster
+    name: Proxmox Cluster
+    style: solid
+    color: "#ffab00"
+  - id: wireless
+    name: Wireless Access
+    style: dashed
+    color: "#00e5ff"
+  - id: client-devices
+    name: Client Devices
+    style: dashed
+    color: "#d500f9"
+  - id: iot-devices
+    name: IoT / Security
+    style: dashed
+    color: "#ff1744"
+
+devices:
+  - id: isp-modem
+    name: ISP Modem
+    type: modem
+    ip: 192.168.0.1
+    network: lan
+    group: network-edge
+    tags:
+      - BRIDGE MODE
+    metadata:
+      download: "1000 Mb/s"
+      upload: "1000 Mb/s"
+
+  - id: pfsense
+    name: netwatch
+    type: firewall
+    ip: 10.0.0.1/24
+    network: lan
+    group: network-edge
+    tags:
+      - PFSENSE
+      - N150
+    specs:
+      ram: 16GB
+
+  - id: main-switch
+    name: tp-link-switch
+    type: switch
+    ip: 10.1.0.1/24
+    network: lan
+    tags:
+      - 2.5 GBIT
+      - 8 PORT
+
+  - id: home-router
+    name: archer
+    type: router
+    ip: 10.2.0.1/24
+    network: home-wifi
+    group: wireless
+    tags:
+      - HOME
+      - GUEST
+
+  - id: iot-router
+    name: tp-link-router
+    type: router
+    ip: 10.3.0.1/23
+    network: iot
+    group: wireless
+    tags:
+      - IOT
+      - AP MODE
+
+  - id: proxmox-host
+    name: beetle
+    type: hypervisor
+    ip: 10.1.10.1
+    network: lan
+    group: proxmox-cluster
+    tags:
+      - PROXMOX 8.2
+    specs:
+      cpu: i5
+      ram: 64GB
+      storage: 10 TB
+      gpu: INTEL HD
+    children:
+      - id: truenas
+        name: TrueNAS
+        type: vm
+        ip: 10.1.10.100
+        tags:
+          - NAS
+        services:
+          - name: SMB
+            port: 445
+            runtime: native
+          - name: NFS
+            port: 2049
+            runtime: native
+      - id: jellyfin
+        name: Jellyfin
+        type: container
+        ip: 10.1.10.101
+        tags:
+          - MEDIA
+        services:
+          - name: Jellyfin
+            port: 8096
+            runtime: docker
+          - name: Sonarr
+            port: 8989
+            runtime: docker
+          - name: Radarr
+            port: 7878
+            runtime: docker
+      - id: adguard
+        name: AdGuard
+        type: container
+        ip: 10.1.10.102
+        tags:
+          - DNS
+        services:
+          - name: AdGuard Home
+            port: 3000
+            runtime: native
+
+  - id: server-shelby
+    name: shelby
+    type: server
+    ip: 10.1.20.1
+    network: lan
+    group: proxmox-cluster
+    specs:
+      cpu: i5
+      ram: 64GB
+      storage: 256GB
+      gpu: NVIDIA GTX1650
+
+  - id: server-mustang
+    name: mustang
+    type: server
+    ip: 10.1.30.1
+    network: lan
+    group: proxmox-cluster
+    specs:
+      cpu: i7
+      ram: 64GB
+      storage: 2TB
+      gpu: RADEON
+
+  - id: tailscale
+    name: Tailscale
+    type: vpn
+    tags:
+      - MESH VPN
+      - SUBNET ROUTER
+
+  - id: workstation
+    name: workstation
+    type: desktop
+    ip: 10.2.10.1
+    network: home-wifi
+    group: client-devices
+
+  - id: phone
+    name: cellphone
+    type: phone
+    ip: 10.2.10.2
+    network: home-wifi
+    group: client-devices
+
+  - id: maverick
+    name: maverick
+    type: laptop
+    ip: 10.2.10.3
+    network: home-wifi
+    group: client-devices
+    tags:
+      - PRIMARY
+
+  - id: alarm
+    name: alarm
+    type: iot
+    ip: 10.3.10.1
+    network: iot
+    group: iot-devices
+    tags:
+      - SECURITY
+
+  - id: dvr-cameras
+    name: dvr-cameras
+    type: camera
+    ip: 10.3.10.2
+    network: iot
+    group: iot-devices
+    specs:
+      storage: 4 TB
+    tags:
+      - 8 CAMERAS
+
+  - id: room-tv
+    name: room-tv
+    type: tv
+    ip: 10.2.10.9
+    network: home-wifi
+    group: client-devices
+
+connections:
+  - from: isp-modem
+    to: pfsense
+    type: ethernet
+    speed: 1G
+
+  - from: pfsense
+    to: main-switch
+    type: ethernet
+    speed: 2.5G
+
+  - from: main-switch
+    to: home-router
+    type: ethernet
+    speed: 1G
+
+  - from: main-switch
+    to: iot-router
+    type: ethernet
+    speed: 1G
+
+  - from: main-switch
+    to: proxmox-host
+    type: ethernet
+    speed: 2.5G
+
+  - from: main-switch
+    to: server-shelby
+    type: ethernet
+    speed: 1G
+
+  - from: main-switch
+    to: server-mustang
+    type: ethernet
+    speed: 1G
+
+  - from: home-router
+    to: workstation
+    type: wifi
+
+  - from: home-router
+    to: phone
+    type: wifi
+
+  - from: home-router
+    to: maverick
+    type: wifi
+
+  - from: home-router
+    to: room-tv
+    type: wifi
+
+  - from: iot-router
+    to: alarm
+    type: wifi
+
+  - from: iot-router
+    to: dvr-cameras
+    type: ethernet
+    speed: 100M
+
+  - from: maverick
+    to: tailscale
+    type: vpn
+    label: tailscale`;

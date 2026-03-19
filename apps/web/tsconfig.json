@@ -6,13 +6,11 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
     "jsx": "react-jsx",
-    "outDir": "dist",
-    "rootDir": "src"
-  }
+    "paths": {
+      "@homelab-stackdoc/core": ["../../packages/core/src"],
+      "@homelab-stackdoc/renderer": ["../../packages/renderer/src"]
+    }
+  },
+  "include": ["src"]
 }
