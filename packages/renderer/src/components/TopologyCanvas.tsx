@@ -1,9 +1,10 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import type { PositionedGraph, Device } from "@homelab-stackdoc/core";
-import { DeviceCard } from "./DeviceCard";
-import { ConnectionLine } from "./ConnectionLine";
-import { GroupOutline } from "./GroupOutline";
+import { CanvasControls } from './CanvasControls'
 import { colors, fonts } from "../theme";
+import { ConnectionLine } from "./ConnectionLine";
+import { DeviceCard } from "./DeviceCard";
+import { GroupOutline } from "./GroupOutline";
+import type { PositionedGraph, Device } from "@homelab-stackdoc/core";
 
 interface TopologyCanvasProps {
   graph: PositionedGraph;
@@ -112,6 +113,48 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
   const onMouseUp = useCallback(() => setDragging(false), []);
 
+  const onZoomIn = useCallback(() => {
+    setTransform((t) => ({
+      ...t,
+      scale: Math.min(3, t.scale * 1.2),
+    }));
+  }, []);
+
+  const onZoomOut = useCallback(() => {
+    setTransform((t) => ({
+      ...t,
+      scale: Math.max(0.15, t.scale / 1.2),
+    }));
+  }, []);
+
+  const fitToScreen = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+
+    const headerHeight = 44;
+    const padding = 40;
+    const availableWidth = rect.width - padding * 2;
+    const availableHeight = rect.height - headerHeight - padding * 2;
+
+    const scaleX = availableWidth / graph.bounds.width;
+    const scaleY = availableHeight / graph.bounds.height;
+    const scale = Math.min(scaleX, scaleY, 1);
+
+    const scaledWidth = graph.bounds.width * scale;
+    const scaledHeight = graph.bounds.height * scale;
+    const x = (rect.width - scaledWidth) / 2;
+    const y = headerHeight + (availableHeight - scaledHeight) / 2 + padding;
+
+    setTransform({ x, y, scale });
+  }, [graph]);
+
+  const resetView = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = (rect.width - graph.bounds.width) / 2;
+    setTransform({ x, y: 60, scale: 1 });
+  }, [graph]);
+
   const legend = [
     { label: "ETHERNET", color: "#00e676", dash: "" },
     { label: "WI-FI", color: "#00e5ff", dash: "2 4" },
@@ -217,6 +260,15 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Canvas controls */}
+      <CanvasControls
+        onZoomIn={onZoomIn}
+        onZoomOut={onZoomOut}
+        onFitToScreen={fitToScreen}
+        onResetView={resetView}
+        scale={transform.scale}
+      />
 
       {/* Transformed canvas */}
       <div
