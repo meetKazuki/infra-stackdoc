@@ -1,0 +1,94 @@
+/**
+ * Design tokens derived from the reference topology diagrams.
+ * Both references share a dark-background + neon-accent aesthetic.
+ */
+export const colors = {
+  // Canvas
+  background: "#080f1e",
+  backgroundSubtle: "#0c1527",
+
+  // Primary accent — cyan/teal
+  primary: "#00e5ff",
+  primaryDim: "rgba(0, 229, 255, 0.15)",
+  primaryBorder: "rgba(0, 229, 255, 0.35)",
+
+  // Secondary accents
+  amber: "#ffab00",
+  amberDim: "rgba(255, 171, 0, 0.15)",
+  amberBorder: "rgba(255, 171, 0, 0.35)",
+
+  green: "#00e676",
+  greenDim: "rgba(0, 230, 118, 0.15)",
+
+  red: "#ff1744",
+  redDim: "rgba(255, 23, 68, 0.15)",
+
+  purple: "#d500f9",
+  purpleDim: "rgba(213, 0, 249, 0.15)",
+
+  // Text
+  textPrimary: "#e0f7fa",
+  textSecondary: "#78909c",
+  textMuted: "#455a64",
+
+  // Borders
+  border: "rgba(0, 229, 255, 0.12)",
+  borderHover: "rgba(0, 229, 255, 0.4)",
+} as const;
+
+export const connectionColors: Record<string, string> = {
+  ethernet: colors.green,
+  wifi: colors.primary,
+  vpn: colors.amber,
+  usb: colors.purple,
+  thunderbolt: colors.purple,
+  fiber: colors.green,
+  default: colors.textSecondary,
+};
+
+export const fonts = {
+  mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace",
+  sans: "'IBM Plex Sans', 'Inter', system-ui, sans-serif",
+} as const;
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 20,
+  xl: 32,
+} as const;
+
+/** Returns the accent color for a given device type. */
+export function deviceAccent(type: string): string {
+  switch (type) {
+    case "router":
+    case "firewall":
+    case "modem":
+      return colors.primary;
+    case "switch":
+    case "ap":
+      return colors.primary;
+    case "server":
+    case "hypervisor":
+    case "nas":
+      return colors.amber;
+    case "vm":
+    case "container":
+      return colors.green;
+    case "camera":
+    case "iot":
+      return colors.red;
+    case "desktop":
+    case "laptop":
+      return colors.primary;
+    case "phone":
+    case "tablet":
+    case "tv":
+      return colors.purple;
+    case "vpn":
+      return colors.amber;
+    default:
+      return colors.textSecondary;
+  }
+}
