@@ -1,5 +1,6 @@
-import React, { useCallback } from "react";
-import type { ValidationError } from "@homelab-topology/core";
+import React from "react";
+import { CodeMirrorEditor } from "./CodeMirrorEditor";
+import type { ValidationError } from "@homelab-stackdoc/core";
 
 interface YamlEditorProps {
   value: string;
@@ -7,18 +8,19 @@ interface YamlEditorProps {
   errors: ValidationError[];
 }
 
+const colors = {
+  border: "rgba(0, 229, 255, 0.12)",
+  red: "#ff1744",
+  amber: "#ffab00",
+  green: "#00e676",
+  textSecondary: "#78909c",
+};
+
 export const YamlEditor: React.FC<YamlEditorProps> = ({
   value,
   onChange,
   errors,
 }) => {
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      onChange(e.target.value);
-    },
-    [onChange],
-  );
-
   const errorCount = errors.filter((e) => e.severity === "error").length;
   const warningCount = errors.filter((e) => e.severity === "warning").length;
 
@@ -40,74 +42,66 @@ export const YamlEditor: React.FC<YamlEditorProps> = ({
           alignItems: "center",
           justifyContent: "space-between",
           padding: "8px 16px",
-          borderBottom: "1px solid rgba(0,229,255,0.12)",
-          fontSize: 11,
-          color: "#78909c",
+          borderBottom: `1px solid ${colors.border}`,
+          fontSize: 10,
+          color: colors.textSecondary,
+          flexShrink: 0,
         }}
       >
-        <span style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>
+        <span
+          style={{
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
+        >
           homelab.yaml
         </span>
         <div style={{ display: "flex", gap: 12 }}>
           {errorCount > 0 && (
-            <span style={{ color: "#ff1744" }}>
+            <span style={{ color: colors.red }}>
               {errorCount} error{errorCount !== 1 ? "s" : ""}
             </span>
           )}
           {warningCount > 0 && (
-            <span style={{ color: "#ffab00" }}>
+            <span style={{ color: colors.amber }}>
               {warningCount} warning{warningCount !== 1 ? "s" : ""}
             </span>
           )}
           {errorCount === 0 && warningCount === 0 && (
-            <span style={{ color: "#00e676" }}>valid</span>
+            <span style={{ color: colors.green }}>valid</span>
           )}
         </div>
       </div>
 
       {/* Editor */}
-      <textarea
-        value={value}
-        onChange={handleChange}
-        spellCheck={false}
-        autoComplete="off"
-        autoCorrect="off"
-        style={{
-          flex: 1,
-          background: "transparent",
-          color: "#e0f7fa",
-          border: "none",
-          outline: "none",
-          resize: "none",
-          padding: "16px",
-          fontSize: 13,
-          lineHeight: 1.6,
-          tabSize: 2,
-          fontFamily: "inherit",
-          caretColor: "#00e5ff",
-        }}
-      />
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <CodeMirrorEditor value={value} onChange={onChange} />
+      </div>
 
       {/* Error panel */}
       {errors.length > 0 && (
         <div
           style={{
-            maxHeight: 120,
+            maxHeight: 100,
             overflowY: "auto",
-            borderTop: "1px solid rgba(0,229,255,0.12)",
-            padding: "8px 16px",
-            fontSize: 11,
+            borderTop: `1px solid ${colors.border}`,
+            padding: "6px 16px",
+            fontSize: 10,
+            flexShrink: 0,
           }}
         >
           {errors.map((err, i) => (
             <div
               key={i}
               style={{
-                color: err.severity === "error" ? "#ff1744" : "#ffab00",
-                marginBottom: 4,
+                color:
+                  err.severity === "error" ? colors.red : colors.amber,
+                marginBottom: 3,
               }}
             >
-              <span style={{ opacity: 0.6 }}>{err.path || "root"}</span>{" "}
+              <span style={{ opacity: 0.5 }}>
+                {err.path || "root"}
+              </span>{" "}
               {err.message}
             </div>
           ))}

@@ -117,6 +117,7 @@ export const App: React.FC = () => {
           expanded={expanded}
           onToggleExpand={toggleExpand}
           deviceMap={deviceMap}
+          yaml={yaml}
         />
       </div>
     </div>
