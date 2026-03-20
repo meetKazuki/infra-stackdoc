@@ -1,0 +1,8 @@
+.git
+*.jpeg
+*.png
+*.tar.gz
+*/dist
+*/node_modules
+dist
+node_modules
