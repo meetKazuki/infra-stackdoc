@@ -46,6 +46,7 @@ renderer-typecheck: ## Typecheck packages/renderer
 web-typecheck: ## Typecheck apps/web
 	cd apps/web && npx tsc --noEmit
 
+
 # ── Testing ────────────────────────────────────────────────────────
 
 test: core-test ## Run all tests
