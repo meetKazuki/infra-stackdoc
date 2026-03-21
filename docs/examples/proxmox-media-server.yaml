@@ -1,0 +1,160 @@
+meta:
+  title: Proxmox Media Server
+  subtitle: Self-hosted streaming stack
+  tags:
+    - PROXMOX 8.2
+    - DOCKER
+
+networks:
+  - id: lan
+    name: LAN
+    subnet: 10.0.0.0/24
+
+groups:
+  - id: network
+    name: Network
+    style: dashed
+    color: "#00e5ff"
+  - id: compute
+    name: Compute
+    style: solid
+    color: "#ffab00"
+  - id: clients
+    name: Clients
+    style: dashed
+    color: "#d500f9"
+
+devices:
+  - id: router
+    name: pfSense
+    type: firewall
+    ip: 10.0.0.1
+    network: lan
+    group: network
+    tags:
+      - GATEWAY
+
+  - id: switch
+    name: UniFi Switch 8
+    type: switch
+    ip: 10.0.0.2
+    network: lan
+    group: network
+    tags:
+      - 1G
+      - POE
+
+  - id: proxmox
+    name: Dell OptiPlex
+    type: hypervisor
+    ip: 10.0.0.10
+    network: lan
+    group: compute
+    tags:
+      - PROXMOX 8.2
+    specs:
+      cpu: i7-12700
+      ram: 64GB
+      storage: 2TB NVMe
+      os: Proxmox VE 8.2
+    children:
+      - id: truenas-vm
+        name: TrueNAS
+        type: vm
+        ip: 10.0.0.20
+        specs:
+          ram: 16GB
+          storage: 4x8TB RAIDZ2
+          os: TrueNAS Scale
+        services:
+          - name: SMB
+            port: 445
+            runtime: native
+          - name: NFS
+            port: 2049
+            runtime: native
+      - id: media-lxc
+        name: media-stack
+        type: container
+        ip: 10.0.0.30
+        specs:
+          ram: 8GB
+          os: Debian 12
+        services:
+          - name: Jellyfin
+            port: 8096
+            runtime: docker
+          - name: Sonarr
+            port: 8989
+            runtime: docker
+          - name: Radarr
+            port: 7878
+            runtime: docker
+          - name: Prowlarr
+            port: 9696
+            runtime: docker
+          - name: qBittorrent
+            port: 8080
+            runtime: docker
+      - id: infra-lxc
+        name: infra
+        type: container
+        ip: 10.0.0.31
+        specs:
+          ram: 2GB
+          os: Debian 12
+        services:
+          - name: AdGuard Home
+            port: 3000
+            runtime: docker
+          - name: Nginx Proxy Manager
+            port: 81
+            runtime: docker
+          - name: Uptime Kuma
+            port: 3001
+            runtime: docker
+
+  - id: desktop
+    name: Desktop
+    type: desktop
+    ip: 10.0.0.100
+    network: lan
+    group: clients
+
+  - id: laptop
+    name: Laptop
+    type: laptop
+    ip: 10.0.0.101
+    network: lan
+    group: clients
+
+  - id: fire-tv
+    name: Fire TV Stick
+    type: tv
+    ip: 10.0.0.110
+    network: lan
+    group: clients
+
+connections:
+  - from: router
+    to: switch
+    type: ethernet
+    speed: 1G
+
+  - from: switch
+    to: proxmox
+    type: ethernet
+    speed: 1G
+
+  - from: switch
+    to: desktop
+    type: ethernet
+    speed: 1G
+
+  - from: router
+    to: laptop
+    type: wifi
+
+  - from: router
+    to: fire-tv
+    type: wifi
