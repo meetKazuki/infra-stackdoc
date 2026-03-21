@@ -96,12 +96,14 @@ function validateReferences(doc: HomelabDocument, errors: ValidationError[]): vo
       if (d.children) collectIds(d.children);
     }
   };
-  if (doc.devices) collectIds(doc.devices);
+  if (Array.isArray(doc.devices)) collectIds(doc.devices);
 
   const networkIds = new Set((doc.networks ?? []).map((n) => n.id));
   const groupIds = new Set((doc.groups ?? []).map((g) => g.id));
+  const connections = Array.isArray(doc.connections) ? doc.connections : [];
+  const devices = Array.isArray(doc.devices) ? doc.devices : [];
 
-  (doc.connections ?? []).forEach((conn, i) => {
+  connections.forEach((conn, i) => {
     if (conn.from && !deviceIds.has(conn.from)) {
       errors.push({
         path: `connections[${i}].from`,
@@ -118,7 +120,7 @@ function validateReferences(doc: HomelabDocument, errors: ValidationError[]): vo
     }
   });
 
-  (doc.devices ?? []).forEach((device, i) => {
+  devices.forEach((device, i) => {
     if (device.network && !networkIds.has(device.network)) {
       errors.push({
         path: `devices[${i}].network`,

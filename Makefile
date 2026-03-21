@@ -46,6 +46,14 @@ renderer-typecheck: ## Typecheck packages/renderer
 web-typecheck: ## Typecheck apps/web
 	cd apps/web && npx tsc --noEmit
 
+
+# ── Testing ────────────────────────────────────────────────────────
+
+test: core-test ## Run all tests
+
+core-test: ## Run core package tests
+	$(PNPM) --filter @homelab-stackdoc/core test
+
 # ── Docker ─────────────────────────────────────────────────────────
 
 docker-build: ## Build the Docker image

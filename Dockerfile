@@ -22,16 +22,24 @@ RUN pnpm --filter @homelab-stackdoc/web build
 
 FROM nginx:alpine
 
-# Copy built files
+RUN apk add --no-cache curl
+
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 
-# SPA routing: send all requests to index.html
 COPY <<'EOF' /etc/nginx/conf.d/default.conf
 server {
     listen 80;
     server_name _;
     root /usr/share/nginx/html;
     index index.html;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Permissions-Policy "interest-cohort=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'none';" always;
 
     location / {
         try_files $uri $uri/ /index.html;
@@ -43,8 +51,21 @@ server {
     }
 
     gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_min_length 256;
+    gzip_types
+        text/plain
+        text/css
+        text/javascript
+        application/json
+        application/javascript
+        application/xml
+        image/svg+xml;
 }
 EOF
 
 EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:80/ || exit 1
