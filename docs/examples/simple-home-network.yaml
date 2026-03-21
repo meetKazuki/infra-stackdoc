@@ -1,0 +1,66 @@
+meta:
+  title: Simple Home Network
+  subtitle: Apartment Setup
+
+devices:
+  - id: isp-modem
+    name: ISP Modem
+    type: modem
+    ip: 192.168.1.1
+    tags:
+      - BRIDGE MODE
+
+  - id: router
+    name: TP-Link AX55
+    type: router
+    ip: 192.168.0.1
+    tags:
+      - WI-FI 6
+      - DHCP
+
+  - id: desktop
+    name: Gaming PC
+    type: desktop
+    ip: 192.168.0.10
+    specs:
+      cpu: Ryzen 7 5800X
+      ram: 32GB
+      gpu: RTX 3070
+
+  - id: laptop
+    name: Work Laptop
+    type: laptop
+    ip: 192.168.0.11
+
+  - id: phone
+    name: iPhone
+    type: phone
+    ip: 192.168.0.12
+
+  - id: smart-tv
+    name: Living Room TV
+    type: tv
+    ip: 192.168.0.20
+
+connections:
+  - from: isp-modem
+    to: router
+    type: ethernet
+    speed: 1G
+
+  - from: router
+    to: desktop
+    type: ethernet
+    speed: 1G
+
+  - from: router
+    to: laptop
+    type: wifi
+
+  - from: router
+    to: phone
+    type: wifi
+
+  - from: router
+    to: smart-tv
+    type: wifi
