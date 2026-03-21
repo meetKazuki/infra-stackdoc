@@ -1,0 +1,134 @@
+meta:
+  title: Docker Homelab
+  subtitle: Single-node setup with Tailscale
+  tags:
+    - DOCKER
+    - TAILSCALE
+
+networks:
+  - id: home
+    name: Home Network
+    subnet: 192.168.1.0/24
+
+groups:
+  - id: infra
+    name: Infrastructure
+    style: dashed
+    color: "#00e5ff"
+  - id: services
+    name: Self-Hosted Services
+    style: solid
+    color: "#00e676"
+
+devices:
+  - id: router
+    name: ISP Router
+    type: router
+    ip: 192.168.1.1
+    network: home
+    group: infra
+
+  - id: mini-pc
+    name: Intel NUC
+    type: server
+    ip: 192.168.1.50
+    network: home
+    group: services
+    tags:
+      - DOCKER HOST
+    specs:
+      cpu: i5-1240P
+      ram: 32GB
+      storage: 1TB NVMe
+      os: Ubuntu 24.04
+    children:
+      - id: reverse-proxy
+        name: Caddy
+        type: container
+        services:
+          - name: Caddy
+            port: 443
+            runtime: docker
+      - id: auth
+        name: Authentik
+        type: container
+        services:
+          - name: Authentik
+            port: 9000
+            runtime: docker
+      - id: wiki
+        name: Wiki.js
+        type: container
+        services:
+          - name: Wiki.js
+            port: 3000
+            runtime: docker
+      - id: gitea
+        name: Gitea
+        type: container
+        services:
+          - name: Gitea
+            port: 3001
+            runtime: docker
+      - id: vaultwarden
+        name: Vaultwarden
+        type: container
+        services:
+          - name: Vaultwarden
+            port: 8080
+            runtime: docker
+      - id: monitoring
+        name: Monitoring
+        type: container
+        services:
+          - name: Prometheus
+            port: 9090
+            runtime: docker
+          - name: Grafana
+            port: 3002
+            runtime: docker
+          - name: Node Exporter
+            port: 9100
+            runtime: docker
+
+  - id: tailscale
+    name: Tailscale
+    type: vpn
+    group: infra
+    tags:
+      - EXIT NODE
+      - SUBNET ROUTER
+
+  - id: phone
+    name: Phone
+    type: phone
+    network: home
+
+  - id: laptop
+    name: MacBook
+    type: laptop
+    network: home
+
+connections:
+  - from: router
+    to: mini-pc
+    type: ethernet
+    speed: 2.5G
+
+  - from: router
+    to: phone
+    type: wifi
+
+  - from: router
+    to: laptop
+    type: wifi
+
+  - from: mini-pc
+    to: tailscale
+    type: vpn
+    label: tailscale
+
+  - from: laptop
+    to: tailscale
+    type: vpn
+    label: tailscale
