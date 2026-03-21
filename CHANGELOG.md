@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.1](https://github.com/meetKazuki/infra-stackdoc/compare/v0.1.0...v0.1.1) (2026-03-21)
+
+
+### Code Refactoring
+
+* refactor release process ([#7](https://github.com/meetKazuki/infra-stackdoc/issues/7)) ([26371ad](https://github.com/meetKazuki/infra-stackdoc/commit/26371adb204912550cd22882965c5c45faffdfd4))
+
+
+### Documentation
+
+* update documentation for branching and coolify ghcr deployment ([#12](https://github.com/meetKazuki/infra-stackdoc/issues/12)) ([258496c](https://github.com/meetKazuki/infra-stackdoc/commit/258496c0c14177fc7046e9dc58f980841b86e92e))
+
 ## [0.1.0] — 2025-03-20
 
 ### Added
