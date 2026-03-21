@@ -42,6 +42,9 @@ The project was inspired by the network topology diagrams shared on [`r/homelab`
 
 ## Project Status
 
+[![CI](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/ci.yml)
+[![Release](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/release.yml/badge.svg)](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/release.yml)
+
 **Current: MVP (v0.1.0)**
 
 The tool is functional and usable for documenting homelab infrastructure. The YAML schema, parser, layout engine, and renderer are all working. Known areas for improvement:
@@ -76,13 +79,10 @@ See [open issues](https://github.com/meetKazuki/infra-stackdoc/issues) for plann
 
 ```bash
 ├── packages/
-│   ├── core/           ← Pure TypeScript. Parser, validator, layout engine.
-│   │                      Zero DOM/React dependencies. Testable in isolation.
-│   └── renderer/       ← React components that paint a PositionedGraph.
-│                          Knows nothing about YAML or layout algorithms.
+│   ├── core/           ← Pure TypeScript. Parser, validator, layout engine. Zero DOM/React dependencies. Testable in isolation.
+│   └── renderer/       ← React components that paint a PositionedGraph. Knows nothing about YAML or layout algorithms.
 ├── apps/
-│   └── web/            ← Application shell. Wires core + renderer together.
-│                          Split-pane UI: editor left, topology right.
+│   └── web/            ← Application shell. Wires core + renderer together. Split-pane UI: editor left, topology right.
 └── Makefile            ← All admin commands in one place.
 ```
 
