@@ -44,7 +44,6 @@ server {
     location / {
         try_files $uri $uri/ /index.html;
     }
-
     location /assets {
         expires 1y;
         add_header Cache-Control "public, immutable";
