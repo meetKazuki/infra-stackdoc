@@ -12,7 +12,6 @@
     "declarationMap": true,
     "sourceMap": true,
     "jsx": "react-jsx",
-    "outDir": "dist",
-    "rootDir": "src"
-  }
+  },
+  "include": []
 }
