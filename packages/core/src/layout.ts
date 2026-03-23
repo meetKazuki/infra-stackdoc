@@ -39,7 +39,7 @@ export function layout(
   const layers = buildLayers(topLevel, depthMap);
 
   // 5. Position nodes — estimate height based on content
-  const nodeMap = positionLayers(layers, doc.devices, opts);
+  const nodeMap = positionLayers(layers, opts);
 
   // 6. Reroute connections targeting children to their parent
   const rerouteMap = buildRerouteMap(doc.devices);
@@ -140,56 +140,51 @@ function buildLayers(
 // ─── Node positioning ─────────────────────────────────────────────
 
 /**
- * @deprecated
- * Estimates card height based on content: tags, specs, children.
+ * Positions nodes in horizontal layers. Adds extra spacing between
+ * nodes that belong to different groups so group outlines don't collide.
  */
-function estimateNodeHeight(
-  device: Device,
-  originalDevices: Device[],
-  baseHeight: number,
-): number {
-  const orig = originalDevices.find((d) => d.id === device.id);
-  let h = 40;
-
-  const tags = orig?.tags ?? [];
-  if (tags.length > 0) h += 18;
-
-  const specs = orig?.specs
-    ? Object.values(orig.specs).filter(Boolean).length
-    : 0;
-  if (specs > 0) h += 18;
-
-  const children = orig?.children ?? [];
-  if (children.length > 0) h += 36;
-
-  return h;
-}
-
 function positionLayers(
-  layers: Device[][],
-  originalDevices: Device[],
+  layers: FlatDevice[][],
   opts: Required<LayoutOptions>,
 ): Map<string, PositionedNode> {
   const nodeMap = new Map<string, PositionedNode>();
+  const groupGap = opts.groupPadding * 2 + 16; // padding on both sides + visual gap
+
   let currentY = 0;
 
   for (let depth = 0; depth < layers.length; depth++) {
     const layer = layers[depth];
-    const layerWidth =
-      layer.length * opts.nodeWidth +
-      (layer.length - 1) * opts.horizontalSpacing;
-    const startX = -layerWidth / 2;
+
+    // Compute per-gap spacing: wider between different groups
+    const gaps: number[] = [];
+    for (let i = 1; i < layer.length; i++) {
+      const prevGroup = layer[i - 1].group ?? "";
+      const currGroup = layer[i].group ?? "";
+      const sameGroup = prevGroup !== "" && currGroup !== "" && prevGroup === currGroup;
+      gaps.push(sameGroup ? opts.horizontalSpacing : Math.max(opts.horizontalSpacing, groupGap));
+    }
+
+    // Compute total layer width
+    const totalGaps = gaps.reduce((sum, g) => sum + g, 0);
+    const layerWidth = layer.length * opts.nodeWidth + totalGaps;
+    let cursorX = -layerWidth / 2;
 
     for (let i = 0; i < layer.length; i++) {
       const device = layer[i];
+
       nodeMap.set(device.id, {
         device,
-        x: startX + i * (opts.nodeWidth + opts.horizontalSpacing),
+        x: cursorX,
         y: currentY,
         width: opts.nodeWidth,
         height: opts.nodeHeight,
         depth,
       });
+
+      cursorX += opts.nodeWidth;
+      if (i < gaps.length) {
+        cursorX += gaps[i];
+      }
     }
 
     currentY += opts.nodeHeight + opts.verticalSpacing;
