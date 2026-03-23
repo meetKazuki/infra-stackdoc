@@ -19,7 +19,7 @@ function buildDeviceMap(devices: Device[]): Map<string, Device> {
 
 export const App: React.FC = () => {
   const [yaml, setYaml] = useState(SAMPLE_YAML);
-  const [splitRatio, setSplitRatio] = useState(0.25);
+  const [splitRatio, setSplitRatio] = useState(0.20);
   const [resizing, setResizing] = useState(false);
 
   const { graph, errors, deviceMap, connections } = useMemo(() => {
