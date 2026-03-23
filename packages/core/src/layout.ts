@@ -245,75 +245,178 @@ function rerouteConnections(
 
 // ─── Edge routing ─────────────────────────────────────────────────
 
+/**
+ * Global channel-based edge routing.
+ *
+ * For each gap between adjacent layers, all edges passing through
+ * are collected, sorted by target X position (to minimize crossings),
+ * and assigned dedicated horizontal channel Y values.
+ *
+ * Path shape: exit point → down to channel → horizontal → down to entry.
+ */
 function routeEdges(
   connections: Connection[],
   nodeMap: Map<string, PositionedNode>,
 ): PositionedEdge[] {
+  // ── Step 1: Compute exit/entry points with fan-out ──────────
+
+  interface EdgeInfo {
+    connection: Connection;
+    fromNode: PositionedNode;
+    toNode: PositionedNode;
+    exitX: number;
+    exitY: number;
+    entryX: number;
+    entryY: number;
+    gapKey: string; // "fromDepth→toDepth"
+  }
+
+  // Group connections by source and target for fan computation
   const bySource = new Map<string, Connection[]>();
-  for (const conn of connections) {
-    const list = bySource.get(conn.from) ?? [];
-    list.push(conn);
-    bySource.set(conn.from, list);
-  }
-
   const byTarget = new Map<string, Connection[]>();
+
   for (const conn of connections) {
-    const list = byTarget.get(conn.to) ?? [];
-    list.push(conn);
-    byTarget.set(conn.to, list);
+    if (!nodeMap.has(conn.from) || !nodeMap.has(conn.to)) continue;
+    const sf = bySource.get(conn.from) ?? [];
+    sf.push(conn);
+    bySource.set(conn.from, sf);
+    const tf = byTarget.get(conn.to) ?? [];
+    tf.push(conn);
+    byTarget.set(conn.to, tf);
   }
 
-  const channelSpacing = 12;
+  const edgeInfos: EdgeInfo[] = [];
 
-  return connections
-    .map((conn) => {
-      const fromNode = nodeMap.get(conn.from);
-      const toNode = nodeMap.get(conn.to);
-      if (!fromNode || !toNode) return null;
+  for (const conn of connections) {
+    const fromNode = nodeMap.get(conn.from);
+    const toNode = nodeMap.get(conn.to);
+    if (!fromNode || !toNode) continue;
 
-      const siblings = bySource.get(conn.from) ?? [conn];
-      const sibIndex = siblings.indexOf(conn);
-      const sibCount = siblings.length;
-      const exitSpread = Math.min(fromNode.width * 0.7, sibCount * 24);
-      const exitStartX = fromNode.x + fromNode.width / 2 - exitSpread / 2;
-      const exitX =
-        sibCount === 1
-          ? fromNode.x + fromNode.width / 2
-          : exitStartX + (sibIndex / (sibCount - 1)) * exitSpread;
+    // Fan-out: spread exit points across the source bottom
+    const siblings = bySource.get(conn.from) ?? [conn];
+    const sibIndex = siblings.indexOf(conn);
+    const sibCount = siblings.length;
+    const exitSpread = Math.min(fromNode.width * 0.6, sibCount * 20);
+    const exitCenterX = fromNode.x + fromNode.width / 2;
+    const exitX =
+      sibCount === 1
+        ? exitCenterX
+        : exitCenterX - exitSpread / 2 + (sibIndex / (sibCount - 1)) * exitSpread;
 
-      const targetSiblings = byTarget.get(conn.to) ?? [conn];
-      const targetIndex = targetSiblings.indexOf(conn);
-      const targetCount = targetSiblings.length;
-      const entrySpread = Math.min(toNode.width * 0.7, targetCount * 24);
-      const entryStartX = toNode.x + toNode.width / 2 - entrySpread / 2;
-      const entryX =
-        targetCount === 1
-          ? toNode.x + toNode.width / 2
-          : entryStartX + (targetIndex / (targetCount - 1)) * entrySpread;
+    // Fan-in: spread entry points across the target top
+    const targetSiblings = byTarget.get(conn.to) ?? [conn];
+    const targetIndex = targetSiblings.indexOf(conn);
+    const targetCount = targetSiblings.length;
+    const entrySpread = Math.min(toNode.width * 0.6, targetCount * 20);
+    const entryCenterX = toNode.x + toNode.width / 2;
+    const entryX =
+      targetCount === 1
+        ? entryCenterX
+        : entryCenterX - entrySpread / 2 + (targetIndex / (targetCount - 1)) * entrySpread;
 
-      const fromPt: Point = { x: exitX, y: fromNode.y + fromNode.height };
-      const toPt: Point = { x: entryX, y: toNode.y };
+    const exitY = fromNode.y + fromNode.height;
+    const entryY = toNode.y;
 
-      const midBase = (fromPt.y + toPt.y) / 2;
-      const channelOffset =
-        sibCount <= 1
-          ? 0
-          : (sibIndex - (sibCount - 1) / 2) * channelSpacing;
-      const midY = midBase + channelOffset;
+    // Gap key: use the source depth and the immediate next depth
+    // For edges skipping layers, channel goes in the gap right below source
+    const sourceDepth = fromNode.depth;
+    const targetDepth = toNode.depth;
+    const gapKey = `${sourceDepth}→${targetDepth}`;
 
-      const isAligned = Math.abs(fromPt.x - toPt.x) < 4;
-      const points: Point[] = isAligned
-        ? [fromPt, toPt]
-        : [fromPt, { x: fromPt.x, y: midY }, { x: toPt.x, y: midY }, toPt];
+    edgeInfos.push({
+      connection: conn,
+      fromNode,
+      toNode,
+      exitX,
+      exitY,
+      entryX,
+      entryY,
+      gapKey,
+    });
+  }
 
-      return {
-        connection: conn,
-        points,
-        fromNodeId: conn.from,
-        toNodeId: conn.to,
-      };
-    })
-    .filter(Boolean) as PositionedEdge[];
+  // ── Step 2: Group edges by gap and assign channels ──────────
+
+  const gapGroups = new Map<string, EdgeInfo[]>();
+  for (const info of edgeInfos) {
+    const list = gapGroups.get(info.gapKey) ?? [];
+    list.push(info);
+    gapGroups.set(info.gapKey, list);
+  }
+
+  // Channel Y assignment per gap
+  const channelMap = new Map<EdgeInfo, number>();
+
+  for (const [, group] of gapGroups) {
+    if (group.length === 0) continue;
+
+    // Sort by target X to minimize visual crossings
+    const sorted = [...group].sort((a, b) => a.entryX - b.entryX);
+
+    // Compute the available vertical space in this gap
+    const gapTop = Math.min(...sorted.map((e) => e.exitY));
+    const gapBottom = Math.max(...sorted.map((e) => e.entryY));
+    const gapSize = gapBottom - gapTop;
+
+    // Margins: 15px from top and bottom of the gap
+    const margin = 15;
+    const usableTop = gapTop + margin;
+    const usableBottom = gapBottom - margin;
+    const usableSpace = usableBottom - usableTop;
+
+    // Minimum channel spacing
+    const minSpacing = 8;
+    const count = sorted.length;
+
+    if (count === 1) {
+      // Single edge: channel at the vertical midpoint
+      channelMap.set(sorted[0], (usableTop + usableBottom) / 2);
+    } else {
+      // Spread channels evenly, capped at minimum spacing
+      const idealSpacing = usableSpace / (count - 1);
+      const spacing = Math.max(minSpacing, idealSpacing);
+      const totalNeeded = spacing * (count - 1);
+
+      // Center the channels within the usable space
+      const startY = usableTop + (usableSpace - totalNeeded) / 2;
+
+      for (let i = 0; i < count; i++) {
+        channelMap.set(sorted[i], startY + i * spacing);
+      }
+    }
+  }
+
+  // ── Step 3: Build paths ─────────────────────────────────────
+
+  return edgeInfos.map((info) => {
+    const channelY = channelMap.get(info)!;
+    const isAligned = Math.abs(info.exitX - info.entryX) < 6;
+
+    let points: Point[];
+
+    if (isAligned) {
+      // Nearly vertical: straight line
+      points = [
+        { x: info.exitX, y: info.exitY },
+        { x: info.entryX, y: info.entryY },
+      ];
+    } else {
+      // Orthogonal: exit → down to channel → horizontal → down to entry
+      points = [
+        { x: info.exitX, y: info.exitY },
+        { x: info.exitX, y: channelY },
+        { x: info.entryX, y: channelY },
+        { x: info.entryX, y: info.entryY },
+      ];
+    }
+
+    return {
+      connection: info.connection,
+      points,
+      fromNodeId: info.connection.from,
+      toNodeId: info.connection.to,
+    };
+  });
 }
 
 // ─── Groups ───────────────────────────────────────────────────────
