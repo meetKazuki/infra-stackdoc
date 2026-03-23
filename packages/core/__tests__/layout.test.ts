@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildDoc, buildDevice, buildConnection, buildDocWithChildren } from "./fixtures";
-import { DEFAULT_LAYOUT_OPTIONS } from "../src/types";
 import { layout } from "../src/layout";
+import { DEFAULT_LAYOUT_OPTIONS } from "../src/types";
 import type { HomelabDocument, PositionedGraph } from "../src/types";
+import { buildDoc, buildDevice, buildConnection, buildDocWithChildren } from "./fixtures";
+
+// ─── Helpers ──────────────────────────────────────────────────────
 
 /** Shortcut to find a positioned node by device id. */
 function findNode(graph: PositionedGraph, id: string) {
@@ -101,12 +103,45 @@ describe("layout › basic positioning", () => {
       expect(node.y).toBeGreaterThanOrEqual(0);
     }
   });
+
+  it("gives all nodes uniform dimensions regardless of content", () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({ id: "bare", name: "Bare" }),
+        {
+          id: "loaded",
+          name: "Loaded Server",
+          type: "hypervisor",
+          children: [
+            { id: "vm-1", name: "VM 1", type: "vm" },
+            { id: "vm-2", name: "VM 2", type: "vm" },
+          ],
+          services: [
+            { name: "nginx", port: 80 },
+            { name: "postgres", port: 5432 },
+          ],
+        },
+      ],
+    });
+
+    const graph = layout(doc);
+
+    const widths = new Set(graph.nodes.map((n) => n.width));
+    const heights = new Set(graph.nodes.map((n) => n.height));
+
+    expect(widths.size).toBe(1);
+    expect(heights.size).toBe(1);
+    expect(graph.nodes[0].width).toBe(DEFAULT_LAYOUT_OPTIONS.nodeWidth);
+    expect(graph.nodes[0].height).toBe(DEFAULT_LAYOUT_OPTIONS.nodeHeight);
+  });
 });
 
-// ─── Expand / collapse ────────────────────────────────────────────
+// ─── Connection rerouting ─────────────────────────────────────────
+// Children are rendered inside parent cards, not as separate graph
+// nodes. Any connection referencing a child is rerouted to its parent.
 
-describe("layout › expand / collapse", () => {
-  it("excludes children from output when parent is collapsed (default)", () => {
+describe("layout › connection rerouting", () => {
+  it("only positions top-level devices as graph nodes, not children", () => {
     const doc = buildDocWithChildren();
     const graph = layout(doc);
 
@@ -117,34 +152,7 @@ describe("layout › expand / collapse", () => {
     expect(ids).not.toContain("vm-2");
   });
 
-  it("includes children as positioned nodes when parent is expanded", () => {
-    const doc = buildDocWithChildren();
-    const graph = layout(doc, { expanded: new Set(["hypervisor"]) });
-
-    const ids = graph.nodes.map((n) => n.device.id);
-    expect(ids).toContain("hypervisor");
-    expect(ids).toContain("vm-1");
-    expect(ids).toContain("vm-2");
-    expect(ids).toContain("switch");
-  });
-
-  it("positions expanded children below their parent", () => {
-    const doc = buildDocWithChildren();
-    const graph = layout(doc, { expanded: new Set(["hypervisor"]) });
-
-    const parent = findNode(graph, "hypervisor")!;
-    const child1 = findNode(graph, "vm-1")!;
-    const child2 = findNode(graph, "vm-2")!;
-
-    // Children must be below the parent row.
-    expect(child1.y).toBeGreaterThan(parent.y);
-    expect(child2.y).toBeGreaterThan(parent.y);
-
-    // Children share the same y (same sub-row).
-    expect(child1.y).toBe(child2.y);
-  });
-
-  it("reroutes connections to collapsed children to the parent", () => {
+  it("reroutes connections targeting child devices to the parent", () => {
     const doc: HomelabDocument = {
       meta: { title: "Reroute test" },
       devices: [
@@ -162,7 +170,6 @@ describe("layout › expand / collapse", () => {
       ],
     };
 
-    // Collapsed — child is hidden, its connection should reroute to parent.
     const graph = layout(doc);
 
     // After rerouting and dedup, only one edge parent→ext should survive.
@@ -217,7 +224,7 @@ describe("layout › expand / collapse", () => {
         },
         buildDevice({ id: "sw", name: "Switch", type: "switch" }),
       ],
-      // Both reroute to host→sw when collapsed.
+      // Both child connections reroute to host→sw.
       connections: [
         buildConnection({ from: "vm-a", to: "sw" }),
         buildConnection({ from: "vm-b", to: "sw" }),
@@ -294,9 +301,47 @@ describe("layout › groups", () => {
     const node = findNode(graph, "only")!;
     const group = graph.groups[0];
 
-    // For a single-node group, width = nodeWidth + 2 * padding.
+    // For a single-node group:
+    //   width  = nodeWidth + 2 * padding  (symmetric left/right)
+    //   height = nodeHeight + padding + (padding + 16)  (extra 16 at top for label)
     expect(group.width).toBe(node.width + customPadding * 2);
-    expect(group.height).toBe(node.height + customPadding * 2);
+    expect(group.height).toBe(node.height + customPadding * 2 + 16);
+  });
+
+  it("adds extra horizontal spacing between nodes in different groups", () => {
+    // Two nodes in DIFFERENT groups — should get extra spacing.
+    const diffGroupDoc = buildDoc({
+      groups: [
+        { id: "left-group", name: "Left" },
+        { id: "right-group", name: "Right" },
+      ],
+      devices: [
+        buildDevice({ id: "a", name: "A", group: "left-group" }),
+        buildDevice({ id: "b", name: "B", group: "right-group" }),
+      ],
+    });
+    const diffLayout = layout(diffGroupDoc);
+
+    // Two nodes in the SAME group — baseline spacing.
+    const sameGroupDoc = buildDoc({
+      groups: [{ id: "shared", name: "Shared" }],
+      devices: [
+        buildDevice({ id: "a", name: "A", group: "shared" }),
+        buildDevice({ id: "b", name: "B", group: "shared" }),
+      ],
+    });
+    const sameLayout = layout(sameGroupDoc);
+
+    const diffGap =
+      findNode(diffLayout, "b")!.x -
+      (findNode(diffLayout, "a")!.x + findNode(diffLayout, "a")!.width);
+    const sameGap =
+      findNode(sameLayout, "b")!.x -
+      (findNode(sameLayout, "a")!.x + findNode(sameLayout, "a")!.width);
+
+    // Nodes in different groups should be spaced further apart than
+    // nodes sharing a group.
+    expect(diffGap).toBeGreaterThan(sameGap);
   });
 });
 
@@ -422,21 +467,30 @@ describe("layout › options", () => {
 
   it("allows user options to override defaults", () => {
     const doc = buildDoc();
-    const graph = layout(doc, { nodeWidth: 300, nodeHeight: 150 });
+    const graph = layout(doc, { nodeWidth: 400, nodeHeight: 200 });
 
     const node = graph.nodes[0];
-    expect(node.width).toBe(300);
-    expect(node.height).toBe(150);
+    expect(node.width).toBe(400);
+    expect(node.height).toBe(200);
   });
 
-  it("respects a custom expanded set", () => {
-    const doc = buildDocWithChildren();
+  it("respects custom spacing between nodes", () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({ id: "a", name: "A" }),
+        buildDevice({ id: "b", name: "B" }),
+      ],
+    });
 
-    const collapsed = layout(doc);
-    const expanded = layout(doc, { expanded: new Set(["hypervisor"]) });
+    const narrow = layout(doc, { horizontalSpacing: 20 });
+    const wide = layout(doc, { horizontalSpacing: 200 });
 
-    expect(collapsed.nodes.length).toBeLessThan(expanded.nodes.length);
-    expect(expanded.nodes.map((n) => n.device.id)).toContain("vm-1");
+    const narrowGap =
+      findNode(narrow, "b")!.x - (findNode(narrow, "a")!.x + findNode(narrow, "a")!.width);
+    const wideGap =
+      findNode(wide, "b")!.x - (findNode(wide, "a")!.x + findNode(wide, "a")!.width);
+
+    expect(wideGap).toBeGreaterThan(narrowGap);
   });
 });
 
