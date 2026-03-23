@@ -1,30 +1,90 @@
 import React, { useState } from "react";
+import type { PositionedNode, Device } from "@homelab-stackdoc/core";
 import { colors, fonts, deviceAccent } from "../theme";
-import { getIconPath } from "../icons";
-import type { PositionedNode } from "@homelab-stackdoc/core";
+import { getDeviceIconPath, getSpecIconPath } from "../icons";
 
 interface DeviceCardProps {
   node: PositionedNode;
-  isExpanded: boolean;
-  hasChildren: boolean;
-  onToggleExpand: (id: string) => void;
+  originalDevice: Device;
+  onChildClick: (child: Device, parent: Device) => void;
 }
+
+const SpecItem: React.FC<{ specKey: string; value: string }> = ({ specKey, value }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 3, color: colors.textSecondary }}>
+    <svg width={11} height={11} viewBox="0 0 24 24" fill={colors.textMuted} style={{ flexShrink: 0 }}>
+      <path d={getSpecIconPath(specKey)} />
+    </svg>
+    <span style={{ fontSize: 10, color: colors.textPrimary, whiteSpace: "nowrap" }}>{value}</span>
+  </div>
+);
+
+const Tag: React.FC<{ label: string; accent: string }> = ({ label, accent }) => (
+  <span
+    style={{
+      fontSize: 8, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase",
+      color: accent, background: `${accent}18`, border: `1px solid ${accent}33`,
+      borderRadius: 3, padding: "1px 6px", lineHeight: "16px", whiteSpace: "nowrap",
+    }}
+  >
+    {label}
+  </span>
+);
+
+const ChildCircle: React.FC<{
+  child: Device;
+  onClick: () => void;
+}> = ({ child, onClick }) => {
+  const [hovered, setHovered] = useState(false);
+  const accent = deviceAccent(child.type);
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      style={{
+        position: "relative",
+        width: 30, height: 30, borderRadius: "50%",
+        background: `${accent}15`,
+        border: `1.5px solid ${hovered ? accent : `${accent}44`}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", transition: "all 0.15s",
+        boxShadow: hovered ? `0 0 12px ${accent}33` : "none",
+        flexShrink: 0,
+      }}
+    >
+      <svg width={14} height={14} viewBox="0 0 24 24" fill={accent}>
+        <path d={getDeviceIconPath(child.type)} />
+      </svg>
+      {hovered && (
+        <div style={{
+          position: "absolute", bottom: -22, left: "50%", transform: "translateX(-50%)",
+          background: colors.backgroundSubtle, border: `1px solid ${colors.border}`,
+          borderRadius: 4, padding: "2px 8px", fontSize: 9, color: colors.textPrimary,
+          whiteSpace: "nowrap", zIndex: 100, fontFamily: fonts.mono,
+          pointerEvents: "none",
+        }}>
+          {child.name}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const DeviceCard: React.FC<DeviceCardProps> = ({
   node,
-  isExpanded,
-  hasChildren,
-  onToggleExpand,
+  originalDevice,
+  onChildClick,
 }) => {
   const [hovered, setHovered] = useState(false);
   const { device, x, y, width, height } = node;
   const accent = deviceAccent(device.type);
 
-  const specs = device.specs
-    ? Object.entries(device.specs).filter(([, v]) => v)
+  const specs = originalDevice.specs
+    ? Object.entries(originalDevice.specs).filter(([, v]) => v)
     : [];
-  const tags = device.tags ?? [];
-  const services = device.services ?? [];
+  const tags = originalDevice.tags ?? [];
+  const children = originalDevice.children ?? [];
 
   return (
     <div
@@ -32,249 +92,113 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
       onMouseLeave={() => setHovered(false)}
       style={{
         position: "absolute",
-        left: x,
-        top: y,
-        width,
-        height,
-        overflow: "hidden",
-        background: hovered ? "rgba(0,229,255,0.06)" : colors.backgroundSubtle,
-        borderRadius: 6,
-        fontFamily: fonts.mono,
-        cursor: hasChildren ? "pointer" : "default",
-        transition: "border-color 0.2s, background 0.2s, box-shadow 0.2s",
-        boxShadow: hovered
-          ? `0 0 20px ${accent}22, inset 0 0 20px ${accent}08`
-          : "none",
-        boxSizing: "border-box",
+        left: x, top: y, width, height,
+        background: colors.backgroundSubtle,
+        borderRadius: 6, overflow: "hidden",
+        border: `1px solid ${hovered ? accent : colors.border}`,
+        fontFamily: fonts.mono, cursor: "default",
+        transition: "border-color 0.2s, box-shadow 0.2s",
+        boxShadow: hovered ? `0 0 24px ${accent}22` : "none",
         display: "flex",
-        flexDirection: "row",
-      }}
-      onClick={(e) => {
-        if (hasChildren) {
-          e.stopPropagation();
-          onToggleExpand(device.id);
-        }
       }}
     >
       {/* Left accent bar */}
-      <div
-        style={{
-          width: 3,
-          flexShrink: 0,
-          background: accent,
-          borderRadius: "6px 0 0 6px",
-          opacity: hovered ? 1 : 0.6,
-          transition: "opacity 0.2s",
-        }}
-      />
+      <div style={{
+        width: 3, flexShrink: 0, background: accent,
+        opacity: hovered ? 1 : 0.6, transition: "opacity 0.2s",
+      }} />
 
-      {/* Content area */}
-      <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          padding: "8px 10px",
-          border: `1px solid ${hovered ? accent : colors.border}`,
-          borderLeft: "none",
-          borderRadius: "0 6px 6px 0",
-          transition: "border-color 0.2s",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        {/* Header: icon + name + expand indicator */}
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <svg
-            width={16}
-            height={16}
-            viewBox="0 0 24 24"
-            fill={accent}
-            style={{ flexShrink: 0 }}
-          >
-            <path d={getIconPath(device.type)} />
+      <div style={{
+        flex: 1, padding: "8px 12px",
+        display: "flex", flexDirection: "column", gap: 4,
+        minWidth: 0,
+      }}>
+        {/* Header: icon + name + IP + type badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width={18} height={18} viewBox="0 0 24 24" fill={accent} style={{ flexShrink: 0 }}>
+            <path d={getDeviceIconPath(device.type)} />
           </svg>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div
-              style={{
-                color: colors.textPrimary,
-                fontSize: 12,
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {device.name}
-            </div>
-            {device.ip && (
-              <div
-                style={{
-                  color: colors.textSecondary,
-                  fontSize: 10,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {device.ip}
-              </div>
-            )}
-          </div>
-          {/* Expand/collapse chevron */}
-          {hasChildren && (
-            <svg
-              width={14}
-              height={14}
-              viewBox="0 0 24 24"
-              fill={colors.textMuted}
-              style={{
-                flexShrink: 0,
-                transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.2s",
-              }}
-            >
-              <path d="M7 10l5 5 5-5z" />
-            </svg>
+          <span style={{
+            color: colors.textPrimary, fontSize: 13, fontWeight: 700,
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            {device.name}
+          </span>
+          {device.ip && (
+            <span style={{ color: colors.textMuted, fontSize: 10, whiteSpace: "nowrap" }}>
+              {device.ip}
+            </span>
           )}
+          <div style={{ flex: 1 }} />
+          <Tag label={device.type.toUpperCase()} accent={accent} />
         </div>
 
         {/* Tags */}
         {tags.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 3,
-              marginTop: 6,
-            }}
-          >
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  fontSize: 8,
-                  fontWeight: 700,
-                  letterSpacing: "0.05em",
-                  textTransform: "uppercase",
-                  color: accent,
-                  background: `${accent}18`,
-                  border: `1px solid ${accent}33`,
-                  borderRadius: 3,
-                  padding: "1px 5px",
-                  lineHeight: "14px",
-                }}
-              >
-                {tag}
-              </span>
-            ))}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {tags.map((t) => <Tag key={t} label={t} accent={accent} />)}
           </div>
         )}
 
-        {/* Specs — compact */}
+        {/* Specs — icon + value pairs */}
         {specs.length > 0 && (
-          <div
-            style={{
-              marginTop: 5,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "2px 10px",
-              overflow: "hidden",
-            }}
-          >
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "3px 12px" }}>
             {specs.map(([key, value]) => (
-              <div
-                key={key}
-                style={{
-                  fontSize: 9,
-                  color: colors.textSecondary,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span
-                  style={{
-                    color: colors.textMuted,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  {key}
-                </span>{" "}
-                <span style={{ color: colors.textPrimary }}>{value}</span>
-              </div>
+              <SpecItem key={key} specKey={key} value={value as string} />
             ))}
           </div>
         )}
 
-        {/* Services list (visible for leaf nodes or expanded parents) */}
-        {services.length > 0 && (
-          <div
-            style={{
-              marginTop: 5,
-              borderTop: `1px solid ${colors.border}`,
-              paddingTop: 4,
-              overflow: "hidden",
-            }}
-          >
-            {services.map((svc) => (
-              <div
-                key={svc.name}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  fontSize: 9,
-                  marginTop: 2,
-                }}
-              >
-                <span
-                  style={{
-                    width: 4,
-                    height: 4,
-                    borderRadius: "50%",
-                    background: colors.green,
-                    flexShrink: 0,
-                  }}
-                />
-                <span style={{ color: colors.textPrimary }}>{svc.name}</span>
-                {svc.port && (
-                  <span style={{ color: colors.textMuted }}>:{svc.port}</span>
-                )}
-                {svc.runtime && (
-                  <span
+        {/* Children — horizontal row with overflow indicator */}
+        {children.length > 0 && (() => {
+          const maxVisible = Math.min(
+            children.length,
+            Math.max(2, Math.floor((width - 100) / 36)),
+          );
+          const visible = children.slice(0, maxVisible);
+          const overflow = children.length - maxVisible;
+
+          return (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6,
+              paddingTop: 5, borderTop: `1px solid ${colors.border}`,
+            }}>
+              <span style={{
+                fontSize: 8, color: colors.textMuted, textTransform: "uppercase",
+                letterSpacing: "0.05em", whiteSpace: "nowrap", flexShrink: 0,
+              }}>
+                {children.length}
+              </span>
+              <div style={{ display: "flex", gap: 4 }}>
+                {visible.map((c) => (
+                  <ChildCircle
+                    key={c.id}
+                    child={c}
+                    onClick={() => onChildClick(c, originalDevice)}
+                  />
+                ))}
+                {overflow > 0 && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChildClick(children[maxVisible], originalDevice);
+                    }}
                     style={{
-                      fontSize: 7,
-                      color: colors.textMuted,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
+                      width: 30, height: 30, borderRadius: "50%",
+                      background: `${colors.textMuted}15`,
+                      border: `1.5px solid ${colors.textMuted}33`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", fontSize: 9, color: colors.textMuted,
+                      fontWeight: 700, fontFamily: fonts.mono, flexShrink: 0,
                     }}
                   >
-                    {svc.runtime}
-                  </span>
+                    +{overflow}
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Collapsed children count badge */}
-        {hasChildren && !isExpanded && (
-          <div
-            style={{
-              marginTop: 5,
-              fontSize: 9,
-              color: colors.textMuted,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            <svg width={10} height={10} viewBox="0 0 24 24" fill={colors.textMuted}>
-              <path d="M4 14h7v-2H4v2zm0 4h7v-2H4v2zm0-8h7V8H4v2zm9 4h7v-2h-7v2zm0 4h7v-2h-7v2zm0-8h7V8h-7v2z" />
-            </svg>
-            click to expand
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

@@ -65,19 +65,21 @@ export function deviceAccent(type: string): string {
     case "router":
     case "firewall":
     case "modem":
-      return colors.primary;
     case "switch":
     case "ap":
       return colors.primary;
     case "server":
     case "hypervisor":
     case "nas":
+    case "mini-pc":
+    case "sbc":
       return colors.amber;
     case "vm":
     case "container":
       return colors.green;
     case "camera":
     case "iot":
+    case "printer":
       return colors.red;
     case "desktop":
     case "laptop":
@@ -85,6 +87,8 @@ export function deviceAccent(type: string): string {
     case "phone":
     case "tablet":
     case "tv":
+    case "game-console":
+    case "media-player":
       return colors.purple;
     case "vpn":
       return colors.amber;
