@@ -1,15 +1,19 @@
-import { DEFAULT_LAYOUT_OPTIONS } from "./types";
-import type {
-  HomelabDocument,
-  Device,
-  Connection,
-  PositionedGraph,
-  PositionedNode,
-  PositionedEdge,
-  PositionedGroup,
-  LayoutOptions,
-  Point,
+import {
+  DEFAULT_LAYOUT_OPTIONS,
+  type HomelabDocument,
+  type Device,
+  type Connection,
+  type PositionedGraph,
+  type PositionedNode,
+  type PositionedEdge,
+  type PositionedGroup,
+  type LayoutOptions,
+  type Point,
 } from "./types";
+
+interface FlatDevice extends Device {
+  _parentId?: string;
+}
 
 /**
  * Computes positions for top-level devices only.
@@ -423,11 +427,14 @@ function routeEdges(
 
 function positionGroups(
   groups: HomelabDocument["groups"],
-  devices: Device[],
+  devices: FlatDevice[],
   nodeMap: Map<string, PositionedNode>,
   opts: Required<LayoutOptions>,
 ): PositionedGroup[] {
   if (!groups) return [];
+
+  const pad = opts.groupPadding;
+  const topPad = pad + 16; // Extra room for the label inside the box
 
   return groups
     .map((group) => {
@@ -450,13 +457,12 @@ function positionGroups(
 
       if (!isFinite(minX)) return null;
 
-      const pad = opts.groupPadding;
       return {
         group,
         x: minX - pad,
-        y: minY - pad,
+        y: minY - topPad,
         width: maxX - minX + pad * 2,
-        height: maxY - minY + pad * 2,
+        height: maxY - minY + topPad + pad,
       };
     })
     .filter(Boolean) as PositionedGroup[];
