@@ -1,6 +1,3 @@
-// ─── YAML Input Types ─────────────────────────────────────────────
-// These mirror the user-authored YAML schema.
-
 export interface HomelabDocument {
   meta: MetaConfig;
   networks?: Network[];
@@ -70,7 +67,12 @@ export type DeviceType =
   | "iot"
   | "ap"
   | "modem"
-  | "vpn";
+  | "vpn"
+  | "mini-pc"
+  | "sbc"
+  | "printer"
+  | "game-console"
+  | "media-player";
 
 export interface DeviceSpecs {
   cpu?: string;
@@ -166,14 +168,12 @@ export interface LayoutOptions {
   horizontalSpacing?: number;
   verticalSpacing?: number;
   groupPadding?: number;
-  expanded?: Set<string>;
 }
 
 export const DEFAULT_LAYOUT_OPTIONS: Required<LayoutOptions> = {
-  nodeWidth: 200,
-  nodeHeight: 100,
-  horizontalSpacing: 60,
+  nodeWidth: 300,
+  nodeHeight: 130,
+  horizontalSpacing: 50,
   verticalSpacing: 80,
   groupPadding: 40,
-  expanded: new Set<string>()
 };

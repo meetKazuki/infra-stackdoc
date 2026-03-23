@@ -5,7 +5,6 @@ import { YamlEditor } from "./components/YamlEditor";
 import { PreviewPane } from "./components/PreviewPane";
 import { SAMPLE_YAML } from "./sampleYaml";
 
-/** Recursively collects all devices (including children) into a flat map */
 function buildDeviceMap(devices: Device[]): Map<string, Device> {
   const map = new Map<string, Device>();
   const walk = (devs: Device[]) => {
@@ -20,56 +19,40 @@ function buildDeviceMap(devices: Device[]): Map<string, Device> {
 
 export const App: React.FC = () => {
   const [yaml, setYaml] = useState(SAMPLE_YAML);
-  const [splitRatio, setSplitRatio] = useState(0.15);
+  const [splitRatio, setSplitRatio] = useState(0.25);
   const [resizing, setResizing] = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const toggleExpand = useCallback((id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  // Core pipeline: parse → validate → layout
-  const { graph, errors, deviceMap } = useMemo<{
-    graph: PositionedGraph | null;
-    errors: ValidationError[];
-    deviceMap: Map<string, Device>;
-  }>(() => {
+  const { graph, errors, deviceMap, connections } = useMemo(() => {
     const result = parse(yaml);
     if (!result.ok) {
-      return { graph: null, errors: result.errors, deviceMap: new Map() };
+      return { graph: null, errors: result.errors, deviceMap: new Map(), connections: [] };
     }
     try {
-      const positioned = layout(result.document, { expanded });
+      const positioned = layout(result.document);
       const dMap = buildDeviceMap(result.document.devices);
-      return { graph: positioned, errors: result.warnings, deviceMap: dMap };
+      return {
+        graph: positioned,
+        errors: result.warnings,
+        deviceMap: dMap,
+        connections: result.document.connections ?? [],
+      };
     } catch (e) {
       return {
         graph: null,
-        errors: [
-          {
-            path: "",
-            message: `Layout error: ${e instanceof Error ? e.message : String(e)}`,
-            severity: "error" as const,
-          },
-        ],
+        errors: [{
+          path: "",
+          message: `Layout error: ${e instanceof Error ? e.message : String(e)}`,
+          severity: "error" as const,
+        }],
         deviceMap: new Map(),
+        connections: [],
       };
     }
-  }, [yaml, expanded]);
+  }, [yaml]);
 
-  // Split-pane resizer
   const onResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     setResizing(true);
-
     const onMove = (moveEvent: MouseEvent) => {
       const ratio = moveEvent.clientX / window.innerWidth;
       setSplitRatio(Math.min(0.6, Math.max(0.15, ratio)));
@@ -84,39 +67,27 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        width: "100vw",
-        overflow: "hidden",
-        background: "#080f1e",
-      }}
-    >
+    <div style={{
+      display: "flex", height: "100vh", width: "100vw",
+      overflow: "hidden", background: "#080f1e",
+    }}>
       <div style={{ width: `${splitRatio * 100}%`, height: "100%" }}>
         <YamlEditor value={yaml} onChange={setYaml} errors={errors} />
       </div>
-
       <div
         onMouseDown={onResizeStart}
         style={{
-          width: 5,
-          cursor: "col-resize",
-          background: resizing
-            ? "rgba(0,229,255,0.3)"
-            : "rgba(0,229,255,0.08)",
+          width: 5, cursor: "col-resize", flexShrink: 0,
+          background: resizing ? "rgba(0,229,255,0.3)" : "rgba(0,229,255,0.08)",
           transition: "background 0.15s",
-          flexShrink: 0,
         }}
       />
-
       <div style={{ flex: 1, height: "100%" }}>
         <PreviewPane
           graph={graph}
           errors={errors}
-          expanded={expanded}
-          onToggleExpand={toggleExpand}
           deviceMap={deviceMap}
+          connections={connections}
           yaml={yaml}
         />
       </div>

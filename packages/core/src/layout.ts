@@ -1,3 +1,4 @@
+import { DEFAULT_LAYOUT_OPTIONS } from "./types";
 import type {
   HomelabDocument,
   Device,
@@ -9,39 +10,40 @@ import type {
   LayoutOptions,
   Point,
 } from "./types";
-import { DEFAULT_LAYOUT_OPTIONS } from "./types";
 
+/**
+ * Computes positions for top-level devices only.
+ * Children are rendered inline inside their parent's card,
+ * not as separate graph nodes.
+ */
 export function layout(
   doc: HomelabDocument,
   userOptions?: LayoutOptions,
 ): PositionedGraph {
   const opts = { ...DEFAULT_LAYOUT_OPTIONS, ...userOptions };
-  const expanded = opts.expanded ?? new Set<string>();
 
-  // 1. Separate top-level devices from nested children
-  const topLevel = doc.devices.map((d) => stripChildren(d));
+  // 1. Top-level devices only (strip children for layout purposes)
+  const topLevel = doc.devices.map((d): Device => ({ ...d, children: undefined }));
 
-  // 2. Build hierarchy from connections (top-level only for depth assignment)
-  const topIds = new Set(topLevel.map((d) => d.id));
+  // 2. Build connection-based hierarchy for depth assignment
   const { childrenMap, roots } = buildHierarchy(topLevel, doc.connections ?? []);
 
-  // 3. BFS depth for top-level devices
+  // 3. BFS depth
   const depthMap = assignDepths(roots, childrenMap);
 
-  // 4. Build layers from top-level devices
+  // 4. Build layers
   const layers = buildLayers(topLevel, depthMap);
 
-  // 5. Position all nodes — top-level in layers, children as sub-rows
-  const nodeMap = positionAll(layers, doc.devices, expanded, opts);
+  // 5. Position nodes — estimate height based on content
+  const nodeMap = positionLayers(layers, doc.devices, opts);
 
-  // 6. Reroute connections for collapsed children
-  const rerouteMap = buildRerouteMap(doc.devices, expanded);
-  const visibleIds = new Set(Array.from(nodeMap.keys()));
+  // 6. Reroute connections targeting children to their parent
+  const rerouteMap = buildRerouteMap(doc.devices);
+  const visibleIds = new Set(topLevel.map((d) => d.id));
   const rerouted = rerouteConnections(doc.connections ?? [], rerouteMap, visibleIds);
 
   // 7. Group outlines
-  const allVisible = collectVisibleFlat(doc.devices, expanded);
-  const groups = positionGroups(doc.groups ?? [], allVisible, nodeMap, opts);
+  const groups = positionGroups(doc.groups ?? [], topLevel, nodeMap, opts);
 
   // 8. Normalize to positive coordinates
   normalizePositions(nodeMap, groups, opts.groupPadding);
@@ -61,37 +63,10 @@ export function layout(
   };
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────
-
-interface FlatDevice extends Device {
-  _parentId?: string;
-}
-
-function stripChildren(d: Device): FlatDevice {
-  const copy: any = { ...d };
-  delete copy.children;
-  return copy as FlatDevice;
-}
-
-function collectVisibleFlat(
-  devices: Device[],
-  expanded: Set<string>,
-  parentId?: string,
-): FlatDevice[] {
-  const result: FlatDevice[] = [];
-  for (const d of devices) {
-    const flat: FlatDevice = { ...d, _parentId: parentId };
-    delete (flat as any).children;
-    result.push(flat);
-    if (d.children && expanded.has(d.id)) {
-      result.push(...collectVisibleFlat(d.children, expanded, d.id));
-    }
-  }
-  return result;
-}
+// ─── Hierarchy ────────────────────────────────────────────────────
 
 function buildHierarchy(
-  devices: FlatDevice[],
+  devices: Device[],
   connections: Connection[],
 ): {
   parentMap: Map<string, string>;
@@ -146,11 +121,11 @@ function assignDepths(
 }
 
 function buildLayers(
-  devices: FlatDevice[],
+  devices: Device[],
   depthMap: Map<string, number>,
-): FlatDevice[][] {
+): Device[][] {
   const maxDepth = Math.max(0, ...depthMap.values());
-  const layers: FlatDevice[][] = Array.from({ length: maxDepth + 1 }, () => []);
+  const layers: Device[][] = Array.from({ length: maxDepth + 1 }, () => []);
   for (const d of devices) {
     const depth = depthMap.get(d.id) ?? 0;
     layers[depth].push(d);
@@ -158,36 +133,44 @@ function buildLayers(
   return layers;
 }
 
+// ─── Node positioning ─────────────────────────────────────────────
+
 /**
- * Positions top-level layers, then inserts sub-rows for expanded
- * children directly beneath their parent. Subsequent rows shift down.
+ * @deprecated
+ * Estimates card height based on content: tags, specs, children.
  */
-function positionAll(
-  layers: FlatDevice[][],
+function estimateNodeHeight(
+  device: Device,
   originalDevices: Device[],
-  expanded: Set<string>,
+  baseHeight: number,
+): number {
+  const orig = originalDevices.find((d) => d.id === device.id);
+  let h = 40;
+
+  const tags = orig?.tags ?? [];
+  if (tags.length > 0) h += 18;
+
+  const specs = orig?.specs
+    ? Object.values(orig.specs).filter(Boolean).length
+    : 0;
+  if (specs > 0) h += 18;
+
+  const children = orig?.children ?? [];
+  if (children.length > 0) h += 36;
+
+  return h;
+}
+
+function positionLayers(
+  layers: Device[][],
+  originalDevices: Device[],
   opts: Required<LayoutOptions>,
 ): Map<string, PositionedNode> {
   const nodeMap = new Map<string, PositionedNode>();
-  const subRowHeight = opts.nodeHeight + 30;
-  const layerGap = opts.verticalSpacing;
-
-  // Build a lookup from id → original device (with children intact)
-  const origMap = new Map<string, Device>();
-  const walkOrig = (devs: Device[]) => {
-    for (const d of devs) {
-      origMap.set(d.id, d);
-      if (d.children) walkOrig(d.children);
-    }
-  };
-  walkOrig(originalDevices);
-
   let currentY = 0;
 
-  for (let layerIdx = 0; layerIdx < layers.length; layerIdx++) {
-    const layer = layers[layerIdx];
-
-    // Position this layer's nodes
+  for (let depth = 0; depth < layers.length; depth++) {
+    const layer = layers[depth];
     const layerWidth =
       layer.length * opts.nodeWidth +
       (layer.length - 1) * opts.horizontalSpacing;
@@ -201,50 +184,11 @@ function positionAll(
         y: currentY,
         width: opts.nodeWidth,
         height: opts.nodeHeight,
-        depth: layerIdx,
+        depth,
       });
     }
 
-    currentY += opts.nodeHeight;
-
-    // Check if any node in this layer is expanded — if so, insert sub-rows
-    const expandedInLayer = layer.filter(
-      (d) => expanded.has(d.id) && origMap.get(d.id)?.children?.length,
-    );
-
-    if (expandedInLayer.length > 0) {
-      currentY += 30; // gap between parent row and children
-
-      for (const parent of expandedInLayer) {
-        const orig = origMap.get(parent.id);
-        if (!orig?.children) continue;
-
-        const parentNode = nodeMap.get(parent.id)!;
-        const children = orig.children;
-        const childWidth =
-          children.length * opts.nodeWidth +
-          (children.length - 1) * opts.horizontalSpacing;
-
-        // Centre children under the parent
-        const childStartX = parentNode.x + parentNode.width / 2 - childWidth / 2;
-
-        for (let ci = 0; ci < children.length; ci++) {
-          const child = stripChildren(children[ci]);
-          nodeMap.set(child.id, {
-            device: child,
-            x: childStartX + ci * (opts.nodeWidth + opts.horizontalSpacing),
-            y: currentY,
-            width: opts.nodeWidth,
-            height: opts.nodeHeight,
-            depth: layerIdx + 0.5,
-          });
-        }
-      }
-
-      currentY += opts.nodeHeight;
-    }
-
-    currentY += layerGap;
+    currentY += opts.nodeHeight + opts.verticalSpacing;
   }
 
   return nodeMap;
@@ -252,30 +196,25 @@ function positionAll(
 
 // ─── Connection rerouting ─────────────────────────────────────────
 
-function buildRerouteMap(
-  devices: Device[],
-  expanded: Set<string>,
-): Map<string, string> {
+/**
+ * Maps every nested child/grandchild id to its top-level ancestor.
+ * Since children are rendered inline, connections to them
+ * terminate at the parent.
+ */
+function buildRerouteMap(devices: Device[]): Map<string, string> {
   const map = new Map<string, string>();
 
-  const walk = (devs: Device[]) => {
-    for (const d of devs) {
-      if (!d.children) continue;
-      if (expanded.has(d.id)) {
-        walk(d.children);
-      } else {
-        const mapDescendants = (children: Device[], target: string) => {
-          for (const child of children) {
-            map.set(child.id, target);
-            if (child.children) mapDescendants(child.children, target);
-          }
-        };
-        mapDescendants(d.children, d.id);
-      }
+  const mapDescendants = (children: Device[], target: string) => {
+    for (const child of children) {
+      map.set(child.id, target);
+      if (child.children) mapDescendants(child.children, target);
     }
   };
 
-  walk(devices);
+  for (const d of devices) {
+    if (d.children) mapDescendants(d.children, d.id);
+  }
+
   return map;
 }
 
@@ -381,7 +320,7 @@ function routeEdges(
 
 function positionGroups(
   groups: HomelabDocument["groups"],
-  devices: FlatDevice[],
+  devices: Device[],
   nodeMap: Map<string, PositionedNode>,
   opts: Required<LayoutOptions>,
 ): PositionedGroup[] {
