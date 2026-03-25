@@ -1,7 +1,7 @@
 {
   "name": "homelab-stackdoc",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Homelab documentation tool — Document and share your setup",
   "workspaces": [
     "packages/*",
