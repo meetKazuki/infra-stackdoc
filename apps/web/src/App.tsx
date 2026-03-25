@@ -3,7 +3,7 @@ import { parse, layout } from '@homelab-stackdoc/core'
 import { PreviewPane } from './components/PreviewPane'
 import SAMPLE_YAML from './sample.yaml?raw'
 import { YamlEditor } from './components/YamlEditor'
-import type { PositionedGraph, ValidationError, Device } from '@homelab-stackdoc/core'
+import type { Device } from '@homelab-stackdoc/core'
 
 function buildDeviceMap(devices: Device[]): Map<string, Device> {
   const map = new Map<string, Device>()

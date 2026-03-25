@@ -8,9 +8,6 @@ interface ConnectionLineProps {
   dimmed?: boolean
 }
 
-// Unique ID counter for SVG gradient/animation references
-let idCounter = 0
-
 export const ConnectionLine: React.FC<ConnectionLineProps> = ({ edge, highlighted, dimmed }) => {
   const { connection, points } = edge
   if (points.length < 2) return null
@@ -19,7 +16,6 @@ export const ConnectionLine: React.FC<ConnectionLineProps> = ({ edge, highlighte
   const color = connectionColors[connType] ?? connectionColors.default
   const isVpn = connType === 'vpn'
   const isWifi = connType === 'wifi'
-  const animId = `flow-${idCounter++}`
 
   // Build SVG path
   const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState } from 'react'
 import { colors, fonts } from '../theme'
 import type { DeviceInterfaces } from '@homelab-stackdoc/core'
 import type { PortAssignment } from '@homelab-stackdoc/core'
@@ -250,7 +250,7 @@ const WifiIndicator: React.FC<{
 export const PortStrip: React.FC<PortStripProps> = ({
   interfaces,
   assignments,
-  cardWidth,
+  cardWidth: _cardWidth,
   onPortHover,
 }) => {
   const ethCount = interfaces.ethernet?.count ?? 0

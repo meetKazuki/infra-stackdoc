@@ -183,7 +183,7 @@ export function buildConnection(overrides: Partial<Connection> = {}): Connection
 }
 
 /** A document with a parent device that has children — useful for layout/expand tests. */
-export function buildDocWithChildren(expanded: boolean = false): HomelabDocument {
+export function buildDocWithChildren(_expanded: boolean = false): HomelabDocument {
   return {
     meta: { title: 'Nested Lab' },
     devices: [

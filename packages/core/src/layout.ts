@@ -1,4 +1,4 @@
-import { assignPorts, getPortX, PORT_DIMENSIONS } from './ports'
+import { assignPorts, getPortX } from './ports'
 import {
   DEFAULT_LAYOUT_OPTIONS,
   type HomelabDocument,
@@ -62,10 +62,6 @@ export function layout(doc: HomelabDocument, userOptions?: LayoutOptions): Posit
 }
 
 // ─── Hierarchy ────────────────────────────────────────────────────
-
-interface FlatDevice extends Device {
-  _parentId?: string
-}
 
 function buildHierarchy(
   devices: Device[],

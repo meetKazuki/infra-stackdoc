@@ -1,6 +1,6 @@
 import yaml from 'js-yaml'
 import { validate } from './validator'
-import type { Device, HomelabDocument, ValidationError } from './types'
+import type { HomelabDocument, ValidationError, DeviceSpecs } from './types'
 
 export type ParseResult =
   | { ok: true; document: HomelabDocument; warnings: ValidationError[] }
@@ -88,73 +88,31 @@ function normalizeDevice(raw: unknown): HomelabDocument['devices'][number] {
     network: r.network ? String(r.network) : undefined,
     group: r.group ? String(r.group) : undefined,
     tags: Array.isArray(r.tags) ? r.tags.map(String) : undefined,
-    specs: r.specs && typeof r.specs === 'object' ? (r.specs as any) : undefined,
+    specs: r.specs && typeof r.specs === 'object' ? (r.specs as DeviceSpecs) : undefined,
     metadata:
       r.metadata && typeof r.metadata === 'object'
         ? (r.metadata as Record<string, string>)
         : undefined,
     children: Array.isArray(r.children) ? r.children.map(normalizeDevice) : undefined,
     services: Array.isArray(r.services)
-      ? r.services.map((s: any) => ({
-          name: String(s?.name ?? ''),
-          port: s?.port != null ? Number(s.port) : undefined,
-          runtime: s?.runtime ? String(s.runtime) : undefined,
-          url: s?.url ? String(s.url) : undefined,
-          metadata:
-            s?.metadata && typeof s.metadata === 'object'
-              ? (s.metadata as Record<string, string>)
-              : undefined,
-        }))
+      ? r.services.map((s: unknown) => {
+          const obj =
+            s && typeof s === 'object' && !Array.isArray(s) ? (s as Record<string, unknown>) : {}
+          return {
+            name: String(obj.name ?? ''),
+            port: obj.port != null ? Number(obj.port) : undefined,
+            runtime: obj.runtime ? String(obj.runtime) : undefined,
+            url: obj.url ? String(obj.url) : undefined,
+            metadata:
+              obj.metadata && typeof obj.metadata === 'object' && !Array.isArray(obj.metadata)
+                ? (obj.metadata as Record<string, string>)
+                : undefined,
+          }
+        })
       : undefined,
     interfaces:
       r.interfaces && typeof r.interfaces === 'object'
         ? (r.interfaces as Record<string, unknown>)
         : undefined,
   }
-}
-
-function normalizeInterfaces(raw: Record<string, unknown>): Device['interfaces'] {
-  const result: Device['interfaces'] = {}
-
-  if (raw.ethernet && typeof raw.ethernet === 'object') {
-    const eth = raw.ethernet as Record<string, unknown>
-    result.ethernet = {
-      count: Number(eth.count ?? 1),
-      speed: eth.speed ? String(eth.speed) : undefined,
-    }
-  }
-
-  if (raw.wifi && typeof raw.wifi === 'object') {
-    const wifi = raw.wifi as Record<string, unknown>
-    result.wifi = {
-      bands: Array.isArray(wifi.bands) ? wifi.bands.map(String) : undefined,
-      standard: wifi.standard ? String(wifi.standard) : undefined,
-    }
-  }
-
-  if (raw.sfp && typeof raw.sfp === 'object') {
-    const sfp = raw.sfp as Record<string, unknown>
-    result.sfp = {
-      count: Number(sfp.count ?? 1),
-      speed: sfp.speed ? String(sfp.speed) : undefined,
-    }
-  }
-
-  if (raw.usb && typeof raw.usb === 'object') {
-    const usb = raw.usb as Record<string, unknown>
-    result.usb = {
-      count: Number(usb.count ?? 1),
-      speed: usb.speed ? String(usb.speed) : undefined,
-    }
-  }
-
-  if (raw.thunderbolt && typeof raw.thunderbolt === 'object') {
-    const tb = raw.thunderbolt as Record<string, unknown>
-    result.thunderbolt = {
-      count: Number(tb.count ?? 1),
-      speed: tb.speed ? String(tb.speed) : undefined,
-    }
-  }
-
-  return Object.keys(result).length > 0 ? result : undefined
 }

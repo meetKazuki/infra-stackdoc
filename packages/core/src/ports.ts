@@ -1,4 +1,4 @@
-import type { Device, Connection, DeviceInterfaces } from './types'
+import type { Device, Connection } from './types'
 
 export interface PortAssignment {
   deviceId: string
@@ -92,8 +92,7 @@ function assignPort(
  * Computes the X position of a specific ethernet/SFP port relative to the card's left edge.
  * Used by both the layout engine (for edge routing) and the renderer (for port strip positioning).
  */
-export function getPortX(portIndex: number, totalPorts: number, cardWidth: number): number {
-  const stripWidth = totalPorts * PORT_WIDTH + (totalPorts - 1) * PORT_GAP
+export function getPortX(portIndex: number, _totalPorts: number, _cardWidth: number): number {
   const startX = PORT_STRIP_PADDING
   return startX + portIndex * (PORT_WIDTH + PORT_GAP) + PORT_WIDTH / 2
 }
