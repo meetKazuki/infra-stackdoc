@@ -1,8 +1,7 @@
+export { DEFAULT_LAYOUT_OPTIONS } from "./types";
 export { layout } from "./layout";
-export { parse } from "./parser";
+export { parse, type ParseResult } from "./parser";
 export { validate } from "./validator";
-export type { ParseResult } from "./parser";
-
 export type {
   HomelabDocument,
   MetaConfig,
@@ -24,5 +23,3 @@ export type {
   ValidationError,
   LayoutOptions,
 } from "./types";
-
-export { DEFAULT_LAYOUT_OPTIONS } from "./types";
