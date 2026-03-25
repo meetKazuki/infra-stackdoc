@@ -1,38 +1,37 @@
-
-import React from "react";
-import { colors, fonts } from "../theme";
+import React from 'react'
+import { colors, fonts } from '../theme'
 
 interface CanvasControlsProps {
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onFitToScreen: () => void;
-  onResetView: () => void;
-  scale: number;
+  onZoomIn: () => void
+  onZoomOut: () => void
+  onFitToScreen: () => void
+  onResetView: () => void
+  scale: number
 }
 
 const buttonStyle: React.CSSProperties = {
   width: 36,
   height: 36,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(12, 21, 39, 0.9)",
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'rgba(12, 21, 39, 0.9)',
   border: `1px solid ${colors.border}`,
   borderRadius: 6,
   color: colors.textSecondary,
-  cursor: "pointer",
-  transition: "background 0.15s, color 0.15s, border-color 0.15s",
+  cursor: 'pointer',
+  transition: 'background 0.15s, color 0.15s, border-color 0.15s',
   fontFamily: fonts.mono,
   fontSize: 14,
   padding: 0,
-};
+}
 
 const Button: React.FC<{
-  onClick: () => void;
-  title: string;
-  children: React.ReactNode;
+  onClick: () => void
+  title: string
+  children: React.ReactNode
 }> = ({ onClick, title, children }) => {
-  const [hovered, setHovered] = React.useState(false);
+  const [hovered, setHovered] = React.useState(false)
 
   return (
     <button
@@ -42,17 +41,15 @@ const Button: React.FC<{
       onMouseLeave={() => setHovered(false)}
       style={{
         ...buttonStyle,
-        background: hovered
-          ? "rgba(0, 229, 255, 0.1)"
-          : "rgba(12, 21, 39, 0.9)",
+        background: hovered ? 'rgba(0, 229, 255, 0.1)' : 'rgba(12, 21, 39, 0.9)',
         borderColor: hovered ? colors.primaryBorder : colors.border,
         color: hovered ? colors.primary : colors.textSecondary,
       }}
     >
       {children}
     </button>
-  );
-};
+  )
+}
 
 export const CanvasControls: React.FC<CanvasControlsProps> = ({
   onZoomIn,
@@ -64,14 +61,14 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({
   return (
     <div
       style={{
-        position: "absolute",
+        position: 'absolute',
         bottom: 20,
         left: 20,
-        display: "flex",
-        flexDirection: "column",
+        display: 'flex',
+        flexDirection: 'column',
         gap: 4,
         zIndex: 10,
-        pointerEvents: "auto",
+        pointerEvents: 'auto',
       }}
     >
       <Button onClick={onZoomIn} title="Zoom in">
@@ -91,14 +88,14 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({
         style={{
           width: 36,
           height: 24,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           fontFamily: fonts.mono,
           fontSize: 9,
           color: colors.textMuted,
-          letterSpacing: "0.02em",
-          userSelect: "none",
+          letterSpacing: '0.02em',
+          userSelect: 'none',
         }}
       >
         {Math.round(scale * 100)}%
@@ -116,5 +113,5 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({
         </svg>
       </Button>
     </div>
-  );
-};
+  )
+}

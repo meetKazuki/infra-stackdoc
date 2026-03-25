@@ -1,47 +1,42 @@
-import React from "react";
-import { CodeMirrorEditor } from "./CodeMirrorEditor";
-import type { ValidationError } from "@homelab-stackdoc/core";
+import React from 'react'
+import { CodeMirrorEditor } from './CodeMirrorEditor'
+import type { ValidationError } from '@homelab-stackdoc/core'
 
 interface YamlEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  errors: ValidationError[];
+  value: string
+  onChange: (value: string) => void
+  errors: ValidationError[]
 }
 
 const colors = {
-  border: "rgba(0, 229, 255, 0.12)",
-  red: "#ff1744",
-  amber: "#ffab00",
-  green: "#00e676",
-  textSecondary: "#78909c",
-};
+  border: 'rgba(0, 229, 255, 0.12)',
+  red: '#ff1744',
+  amber: '#ffab00',
+  green: '#00e676',
+  textSecondary: '#78909c',
+}
 
-export const YamlEditor: React.FC<YamlEditorProps> = ({
-  value,
-  onChange,
-  errors,
-}) => {
-  const errorCount = errors.filter((e) => e.severity === "error").length;
-  const warningCount = errors.filter((e) => e.severity === "warning").length;
+export const YamlEditor: React.FC<YamlEditorProps> = ({ value, onChange, errors }) => {
+  const errorCount = errors.filter((e) => e.severity === 'error').length
+  const warningCount = errors.filter((e) => e.severity === 'warning').length
 
   return (
     <div
       style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        background: "#06090f",
-        fontFamily:
-          "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        background: '#06090f',
+        fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
       }}
     >
       {/* Toolbar */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "8px 16px",
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 16px',
           borderBottom: `1px solid ${colors.border}`,
           fontSize: 10,
           color: colors.textSecondary,
@@ -50,21 +45,21 @@ export const YamlEditor: React.FC<YamlEditorProps> = ({
       >
         <span
           style={{
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
           }}
         >
           homelab.yaml
         </span>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12 }}>
           {errorCount > 0 && (
             <span style={{ color: colors.red }}>
-              {errorCount} error{errorCount !== 1 ? "s" : ""}
+              {errorCount} error{errorCount !== 1 ? 's' : ''}
             </span>
           )}
           {warningCount > 0 && (
             <span style={{ color: colors.amber }}>
-              {warningCount} warning{warningCount !== 1 ? "s" : ""}
+              {warningCount} warning{warningCount !== 1 ? 's' : ''}
             </span>
           )}
           {errorCount === 0 && warningCount === 0 && (
@@ -83,9 +78,9 @@ export const YamlEditor: React.FC<YamlEditorProps> = ({
         <div
           style={{
             maxHeight: 100,
-            overflowY: "auto",
+            overflowY: 'auto',
             borderTop: `1px solid ${colors.border}`,
-            padding: "6px 16px",
+            padding: '6px 16px',
             fontSize: 10,
             flexShrink: 0,
           }}
@@ -94,19 +89,15 @@ export const YamlEditor: React.FC<YamlEditorProps> = ({
             <div
               key={i}
               style={{
-                color:
-                  err.severity === "error" ? colors.red : colors.amber,
+                color: err.severity === 'error' ? colors.red : colors.amber,
                 marginBottom: 3,
               }}
             >
-              <span style={{ opacity: 0.5 }}>
-                {err.path || "root"}
-              </span>{" "}
-              {err.message}
+              <span style={{ opacity: 0.5 }}>{err.path || 'root'}</span> {err.message}
             </div>
           ))}
         </div>
       )}
     </div>
-  );
-};
+  )
+}

@@ -1,13 +1,13 @@
-import path from "path";
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import path from 'path'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@homelab-stackdoc/core": path.resolve(__dirname, "../../packages/core/src"),
-      "@homelab-stackdoc/renderer": path.resolve(__dirname, "../../packages/renderer/src"),
+      '@homelab-stackdoc/core': path.resolve(__dirname, '../../packages/core/src'),
+      '@homelab-stackdoc/renderer': path.resolve(__dirname, '../../packages/renderer/src'),
     },
   },
   build: {
@@ -15,19 +15,19 @@ export default defineConfig({
       output: {
         manualChunks: {
           codemirror: [
-            "codemirror",
-            "@codemirror/state",
-            "@codemirror/view",
-            "@codemirror/language",
-            "@codemirror/lang-yaml",
-            "@codemirror/commands",
-            "@codemirror/search",
-            "@codemirror/autocomplete",
-            "@codemirror/lint",
+            'codemirror',
+            '@codemirror/state',
+            '@codemirror/view',
+            '@codemirror/language',
+            '@codemirror/lang-yaml',
+            '@codemirror/commands',
+            '@codemirror/search',
+            '@codemirror/autocomplete',
+            '@codemirror/lint',
           ],
-          vendor: ["react", "react-dom", "html2canvas"],
+          vendor: ['react', 'react-dom', 'html2canvas'],
         },
       },
     },
   },
-});
+})

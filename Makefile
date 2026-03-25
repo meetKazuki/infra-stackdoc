@@ -98,3 +98,17 @@ new-lockfile: ## Regenerate the pnpm lockfile
 
 tree: ## Show project structure (requires 'tree' command)
 	tree -I 'node_modules|dist|.git' --dirsfirst
+
+# ── Linting & formatting ──────────────────────────────────────────
+
+lint: ## Run ESLint
+	$(PNPM) run lint
+
+lint-fix: ## Run ESLint with auto-fix
+	$(PNPM) run lint:fix
+
+format: ## Format all files with Prettier
+	$(PNPM) run format
+
+format-check: ## Check formatting without writing
+	$(PNPM) run format:check

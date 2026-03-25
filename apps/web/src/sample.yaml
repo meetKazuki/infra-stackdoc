@@ -1,4 +1,4 @@
-export const SAMPLE_YAML = `meta:
+meta:
   title: Home Network Topology
   subtitle: Infrastructure · 2025
   tags:
@@ -363,4 +363,4 @@ connections:
   - from: maverick
     to: tailscale
     type: vpn
-    label: tailscale`
+    label: tailscale
