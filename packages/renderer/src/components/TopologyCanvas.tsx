@@ -1,11 +1,11 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import type { PositionedGraph, Device, Connection } from "@homelab-stackdoc/core";
-import { DeviceCard } from "./DeviceCard";
-import { ConnectionLine } from "./ConnectionLine";
-import { GroupOutline } from "./GroupOutline";
-import { DetailModal } from "./DetailModal";
 import { CanvasControls } from "./CanvasControls";
 import { colors, fonts } from "../theme";
+import { ConnectionLine } from "./ConnectionLine";
+import { DetailModal } from "./DetailModal";
+import { DeviceCard } from "./DeviceCard";
+import { GroupOutline } from "./GroupOutline";
+import type { PositionedGraph, Device, Connection } from "@homelab-stackdoc/core";
 
 interface TopologyCanvasProps {
   graph: PositionedGraph;

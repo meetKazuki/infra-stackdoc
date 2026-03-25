@@ -1,7 +1,8 @@
 import React from "react";
-import type { Device, Connection } from "@homelab-stackdoc/core";
 import { colors, fonts, deviceAccent } from "../theme";
 import { getDeviceIconPath, getSpecIconPath } from "../icons";
+import { ServiceIcon } from './ServiceIcon'
+import type { Device, Connection } from "@homelab-stackdoc/core";
 
 interface DetailModalProps {
   child: Device;
@@ -143,10 +144,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                     padding: "6px 10px", background: `${colors.green}08`,
                     border: `1px solid ${colors.green}18`, borderRadius: 4,
                   }}>
-                    <span style={{
-                      width: 6, height: 6, borderRadius: "50%",
-                      background: colors.green, flexShrink: 0,
-                    }} />
+                    <ServiceIcon name={svc.name} size={20} />
                     <span style={{
                       color: colors.textPrimary, fontSize: 12,
                       fontWeight: 600, flex: 1,

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import type { PositionedNode, Device } from "@homelab-stackdoc/core";
 import { colors, fonts, deviceAccent } from "../theme";
 import { getDeviceIconPath, getSpecIconPath } from "../icons";
+import type { PositionedNode, Device } from "@homelab-stackdoc/core";
 
 interface DeviceCardProps {
   node: PositionedNode;

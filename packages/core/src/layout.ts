@@ -16,9 +16,8 @@ interface FlatDevice extends Device {
 }
 
 /**
- * Computes positions for top-level devices only.
- * Children are rendered inline inside their parent's card,
- * not as separate graph nodes.
+ * Computes positions for top-level devices only. Children are rendered inline inside their parent's
+ * card, not as separate graph nodes.
  */
 export function layout(
   doc: HomelabDocument,
@@ -429,7 +428,7 @@ function positionGroups(
   if (!groups) return [];
 
   const pad = opts.groupPadding;
-  const topPad = pad + 16; // Extra room for the label inside the box
+  const topPad = pad + 16;
 
   return groups
     .map((group) => {

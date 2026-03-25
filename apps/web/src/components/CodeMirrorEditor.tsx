@@ -1,13 +1,13 @@
-import React, { useRef, useEffect } from "react";
+import { autocompletion } from "@codemirror/autocomplete";
+import { defaultKeymap, indentWithTab, history, historyKeymap } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
-import { defaultKeymap, indentWithTab, history, historyKeymap } from "@codemirror/commands";
-import { syntaxHighlighting, bracketMatching, foldGutter, HighlightStyle } from "@codemirror/language";
-import { yaml } from "@codemirror/lang-yaml";
-import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
-import { autocompletion } from "@codemirror/autocomplete";
 import { lintGutter } from "@codemirror/lint";
+import React, { useRef, useEffect } from "react";
+import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { syntaxHighlighting, bracketMatching, foldGutter, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
+import { yaml } from "@codemirror/lang-yaml";
 
 interface CodeMirrorEditorProps {
   value: string;
