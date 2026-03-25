@@ -99,11 +99,16 @@ new-lockfile: ## Regenerate the pnpm lockfile
 tree: ## Show project structure (requires 'tree' command)
 	tree -I 'node_modules|dist|.git' --dirsfirst
 
-# loc: ## Count lines of source code
-# 	@echo ""
-# 	@echo "  Lines of code by package:"
-# 	@echo "  ─────────────────────────"
-# 	@printf "  core:      " && find packages/core/src -name '*.ts' | xargs cat | wc -l
-# 	@printf "  renderer:  " && find packages/renderer/src -name '*.ts' -o -name '*.tsx' | xargs cat | wc -l
-# 	@printf "  web:       " && find apps/web/src -name '*.ts' -o -name '*.tsx' | xargs cat | wc -l
-# 	@echo ""
+# ── Linting & formatting ──────────────────────────────────────────
+
+lint: ## Run ESLint
+	$(PNPM) run lint
+
+lint-fix: ## Run ESLint with auto-fix
+	$(PNPM) run lint:fix
+
+format: ## Format all files with Prettier
+	$(PNPM) run format
+
+format-check: ## Check formatting without writing
+	$(PNPM) run format:check
