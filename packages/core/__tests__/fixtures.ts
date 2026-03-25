@@ -1,4 +1,4 @@
-import type { HomelabDocument, Device, Connection } from "../src/types";
+import type { HomelabDocument, Device, Connection } from '../src/types'
 
 // ─── YAML Strings ────────────────────────────────────────────────
 
@@ -13,7 +13,7 @@ devices:
     type: router
 
 connections: []
-`;
+`
 
 /** Full-featured YAML exercising every schema section. */
 export const FULL_YAML = `
@@ -88,7 +88,7 @@ connections:
   - from: firewall
     to: laptop
     type: wifi
-`;
+`
 
 /** YAML with syntax error (bad indentation). */
 export const INVALID_SYNTAX_YAML = `
@@ -97,13 +97,13 @@ meta:
   devices:
   - id: x
   name: bad indent
-`;
+`
 
 /** YAML that parses to a scalar, not a mapping. */
-export const SCALAR_YAML = `just a plain string`;
+export const SCALAR_YAML = 'just a plain string'
 
 /** YAML that parses to null. */
-export const EMPTY_YAML = ``;
+export const EMPTY_YAML = ''
 
 /** YAML with duplicate device IDs. */
 export const DUPLICATE_IDS_YAML = `
@@ -119,7 +119,7 @@ devices:
     type: router
 
 connections: []
-`;
+`
 
 /** YAML with connections referencing non-existent devices. */
 export const DANGLING_REF_YAML = `
@@ -134,7 +134,7 @@ devices:
 connections:
   - from: router
     to: ghost-device
-`;
+`
 
 /** YAML with devices referencing undefined networks and groups. */
 export const UNDEFINED_REFS_YAML = `
@@ -149,67 +149,59 @@ devices:
     group: nonexistent-group
 
 connections: []
-`;
+`
 
 // ─── Document Builders ───────────────────────────────────────────
 
 /** Builds a minimal valid HomelabDocument. Override any field via the partial. */
-export function buildDoc(
-  overrides: Partial<HomelabDocument> = {},
-): HomelabDocument {
+export function buildDoc(overrides: Partial<HomelabDocument> = {}): HomelabDocument {
   return {
-    meta: { title: "Test Lab" },
-    devices: [{ id: "router", name: "Main Router", type: "router" }],
+    meta: { title: 'Test Lab' },
+    devices: [{ id: 'router', name: 'Main Router', type: 'router' }],
     connections: [],
     ...overrides,
-  };
+  }
 }
 
 /** Builds a device with sensible defaults. */
 export function buildDevice(overrides: Partial<Device> = {}): Device {
   return {
-    id: "device-1",
-    name: "Device 1",
-    type: "server",
+    id: 'device-1',
+    name: 'Device 1',
+    type: 'server',
     ...overrides,
-  };
+  }
 }
 
 /** Builds a connection with sensible defaults. */
-export function buildConnection(
-  overrides: Partial<Connection> = {},
-): Connection {
+export function buildConnection(overrides: Partial<Connection> = {}): Connection {
   return {
-    from: "a",
-    to: "b",
+    from: 'a',
+    to: 'b',
     ...overrides,
-  };
+  }
 }
 
 /** A document with a parent device that has children — useful for layout/expand tests. */
-export function buildDocWithChildren(
-  expanded: boolean = false,
-): HomelabDocument {
+export function buildDocWithChildren(expanded: boolean = false): HomelabDocument {
   return {
-    meta: { title: "Nested Lab" },
+    meta: { title: 'Nested Lab' },
     devices: [
       {
-        id: "hypervisor",
-        name: "Proxmox",
-        type: "hypervisor",
+        id: 'hypervisor',
+        name: 'Proxmox',
+        type: 'hypervisor',
         children: [
-          { id: "vm-1", name: "VM 1", type: "vm" },
-          { id: "vm-2", name: "VM 2", type: "vm" },
+          { id: 'vm-1', name: 'VM 1', type: 'vm' },
+          { id: 'vm-2', name: 'VM 2', type: 'vm' },
         ],
       },
       {
-        id: "switch",
-        name: "Main Switch",
-        type: "switch",
+        id: 'switch',
+        name: 'Main Switch',
+        type: 'switch',
       },
     ],
-    connections: [
-      { from: "hypervisor", to: "switch" },
-    ],
-  };
+    connections: [{ from: 'hypervisor', to: 'switch' }],
+  }
 }

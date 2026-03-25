@@ -1,27 +1,27 @@
-import React from "react";
-import { colors, fonts } from "../theme";
-import type { PositionedGroup } from "@homelab-stackdoc/core";
+import React from 'react'
+import { colors, fonts } from '../theme'
+import type { PositionedGroup } from '@homelab-stackdoc/core'
 
 interface GroupOutlineProps {
-  group: PositionedGroup;
+  group: PositionedGroup
 }
 
 export const GroupOutline: React.FC<GroupOutlineProps> = ({ group }) => {
-  const { x, y, width, height } = group;
-  const style = group.group.style ?? "dashed";
-  const accentColor = group.group.color ?? colors.primary;
+  const { x, y, width, height } = group
+  const style = group.group.style ?? 'dashed'
+  const accentColor = group.group.color ?? colors.primary
 
-  if (style === "none") return null;
+  if (style === 'none') return null
 
-  const label = group.group.name.toUpperCase();
-  const labelFontSize = 9;
-  const labelPadX = 8;
-  const labelPadY = 3;
-  const labelX = x + 12;
-  const labelY = y + 16;
+  const label = group.group.name.toUpperCase()
+  const labelFontSize = 9
+  const labelPadX = 8
+  const labelPadY = 3
+  const labelX = x + 12
+  const labelY = y + 16
 
   // Approximate label width (monospace ~5.5px per char at 9px font)
-  const approxLabelWidth = label.length * 5.5 + labelPadX * 2;
+  const approxLabelWidth = label.length * 5.5 + labelPadX * 2
 
   return (
     <g>
@@ -49,7 +49,7 @@ export const GroupOutline: React.FC<GroupOutlineProps> = ({ group }) => {
         stroke={accentColor}
         strokeWidth={1}
         strokeOpacity={0.2}
-        strokeDasharray={style === "dashed" ? "6 4" : "none"}
+        strokeDasharray={style === 'dashed' ? '6 4' : 'none'}
       />
 
       {/* Label background pill */}
@@ -78,5 +78,5 @@ export const GroupOutline: React.FC<GroupOutlineProps> = ({ group }) => {
         {label}
       </text>
     </g>
-  );
-};
+  )
+}

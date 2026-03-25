@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { colors } from "../theme";
+import React, { useState } from 'react'
+import { colors } from '../theme'
 
-const CDN_BASE = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg";
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/selfhst/icons/svg'
 
 /**
  * Converts a service name to the selfh.st icon reference format.
@@ -12,14 +12,14 @@ const CDN_BASE = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg";
 function toIconRef(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 interface ServiceIconProps {
-  name: string;
-  size?: number;
-  fallbackColor?: string;
+  name: string
+  size?: number
+  fallbackColor?: string
 }
 
 export const ServiceIcon: React.FC<ServiceIconProps> = ({
@@ -27,21 +27,21 @@ export const ServiceIcon: React.FC<ServiceIconProps> = ({
   size = 18,
   fallbackColor = colors.green,
 }) => {
-  const ref = toIconRef(name);
-  const [src, setSrc] = useState(`${CDN_BASE}/${ref}.svg`);
-  const [failed, setFailed] = useState(false);
-  const [triedLight, setTriedLight] = useState(false);
+  const ref = toIconRef(name)
+  const [src, setSrc] = useState(`${CDN_BASE}/${ref}.svg`)
+  const [failed, setFailed] = useState(false)
+  const [triedLight, setTriedLight] = useState(false)
 
   const handleError = () => {
     if (!triedLight) {
       // Try the light variant for dark backgrounds
-      setTriedLight(true);
-      setSrc(`${CDN_BASE}/${ref}-light.svg`);
+      setTriedLight(true)
+      setSrc(`${CDN_BASE}/${ref}-light.svg`)
     } else {
       // Both failed — show fallback
-      setFailed(true);
+      setFailed(true)
     }
-  };
+  }
 
   if (failed) {
     // Fallback: coloured dot with first letter
@@ -50,12 +50,12 @@ export const ServiceIcon: React.FC<ServiceIconProps> = ({
         style={{
           width: size,
           height: size,
-          borderRadius: "50%",
+          borderRadius: '50%',
           background: `${fallbackColor}25`,
           border: `1px solid ${fallbackColor}44`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           fontSize: size * 0.45,
           fontWeight: 700,
           color: fallbackColor,
@@ -65,7 +65,7 @@ export const ServiceIcon: React.FC<ServiceIconProps> = ({
       >
         {name.charAt(0).toUpperCase()}
       </div>
-    );
+    )
   }
 
   return (
@@ -77,17 +77,17 @@ export const ServiceIcon: React.FC<ServiceIconProps> = ({
       onError={handleError}
       style={{
         borderRadius: 3,
-        objectFit: "contain",
+        objectFit: 'contain',
         flexShrink: 0,
       }}
     />
-  );
-};
+  )
+}
 
 /**
  * Hook to get the icon URL for a service name.
  * Useful when you need just the URL, not the component.
  */
 export function getServiceIconUrl(name: string): string {
-  return `${CDN_BASE}/${toIconRef(name)}.svg`;
+  return `${CDN_BASE}/${toIconRef(name)}.svg`
 }
