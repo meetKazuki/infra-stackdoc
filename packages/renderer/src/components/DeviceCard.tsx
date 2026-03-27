@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { colors, fonts, deviceAccent } from '../theme'
 import { getDeviceIconPath, getSpecIconPath } from '../icons'
 import { PortStrip } from './PortStrip'
+import { ServiceIcon } from './ServiceIcon'
 import type { PositionedNode, Device, PortAssignment } from '@homelab-stackdoc/core'
 
 interface DeviceCardProps {
@@ -218,6 +219,43 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
             cardWidth={width}
             onPortHover={(connectedTo) => onPortHover?.(device.id, connectedTo)}
           />
+        )}
+
+        {/* Services — shown for devices with direct services */}
+        {originalDevice.services && originalDevice.services.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              paddingTop: 5,
+              borderTop: `1px solid ${colors.border}`,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 8,
+                color: colors.textMuted,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {originalDevice.services.length}
+            </span>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {originalDevice.services.map((svc) => (
+                <div
+                  key={svc.name}
+                  title={`${svc.name}${svc.port ? ` :${svc.port}` : ''}${svc.runtime ? ` (${svc.runtime})` : ''}`}
+                  style={{ cursor: 'default' }}
+                >
+                  <ServiceIcon name={svc.name} size={22} />
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Children — horizontal row with overflow indicator */}
