@@ -250,7 +250,7 @@ const WifiIndicator: React.FC<{
 export const PortStrip: React.FC<PortStripProps> = ({
   interfaces,
   assignments,
-  cardWidth: _cardWidth,
+  cardWidth,
   onPortHover,
 }) => {
   const ethCount = interfaces.ethernet?.count ?? 0
@@ -274,36 +274,93 @@ export const PortStrip: React.FC<PortStripProps> = ({
       }}
     >
       {/* Ethernet ports */}
-      {ethCount > 0 && (
-        <div>
-          <div style={{ display: 'flex', gap: PORT_GAP }}>
-            {Array.from({ length: ethCount }, (_, i) => {
-              const assignment = ethAssignments.find((a) => a.portIndex === i)
-              return (
-                <RJ45Port
-                  key={`eth-${i}`}
-                  index={i}
-                  active={!!assignment}
-                  connectedTo={assignment?.connectedTo}
-                  speed={assignment?.speed}
-                  onHover={onPortHover}
-                />
-              )
-            })}
-          </div>
-          <div
-            style={{
-              fontSize: 7,
-              color: colors.textMuted,
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              marginTop: 2,
-            }}
-          >
-            {interfaces.ethernet?.speed ? `${interfaces.ethernet.speed} ETH` : 'ETHERNET'}
-          </div>
-        </div>
-      )}
+      {ethCount > 0 &&
+        (() => {
+          const usableWidth = cardWidth - 30 // padding + accent bar
+          const portSlotWidth = PORT_W + PORT_GAP
+          const maxPerRow = Math.max(4, Math.floor(usableWidth / portSlotWidth))
+          const maxRows = 2
+          const maxVisible = maxPerRow * maxRows
+
+          // Sort: active ports first, then inactive
+          const allPorts = Array.from({ length: ethCount }, (_, i) => {
+            const assignment = ethAssignments.find((a) => a.portIndex === i)
+            return { index: i, assignment }
+          })
+
+          const activePorts = allPorts.filter((p) => p.assignment)
+          const inactivePorts = allPorts.filter((p) => !p.assignment)
+          const sorted = [...activePorts, ...inactivePorts]
+          const visible = sorted.slice(0, maxVisible)
+          const hiddenCount = sorted.length - visible.length
+
+          // Split into rows
+          const rows: (typeof visible)[] = []
+          for (let i = 0; i < visible.length; i += maxPerRow) {
+            rows.push(visible.slice(i, i + maxPerRow))
+          }
+
+          return (
+            <div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {rows.map((row, ri) => (
+                  <div
+                    key={ri}
+                    style={{ display: 'flex', gap: PORT_GAP, alignItems: 'flex-start' }}
+                  >
+                    {row.map((p) => (
+                      <RJ45Port
+                        key={`eth-${p.index}`}
+                        index={p.index}
+                        active={!!p.assignment}
+                        connectedTo={p.assignment?.connectedTo}
+                        speed={p.assignment?.speed}
+                        onHover={onPortHover}
+                      />
+                    ))}
+                    {/* Overflow badge on the last row */}
+                    {ri === rows.length - 1 && hiddenCount > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: PORT_H,
+                          paddingLeft: 4,
+                          fontSize: 8,
+                          color: colors.textMuted,
+                          fontFamily: fonts.mono,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        +{hiddenCount}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div
+                style={{
+                  fontSize: 7,
+                  color: colors.textMuted,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginTop: 2,
+                  display: 'flex',
+                  gap: 8,
+                  alignItems: 'center',
+                }}
+              >
+                <span>
+                  {interfaces.ethernet?.speed ? `${interfaces.ethernet.speed} ETH` : 'ETHERNET'}
+                </span>
+                <span style={{ color: colors.textMuted, opacity: 0.5 }}>
+                  {ethAssignments.length}/{ethCount} active
+                </span>
+              </div>
+            </div>
+          )
+        })()}
 
       {/* SFP ports */}
       {sfpCount > 0 && (

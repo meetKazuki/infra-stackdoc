@@ -399,6 +399,11 @@ function routeEdges(
 
 // ─── Groups ───────────────────────────────────────────────────────
 
+/**
+ * Positions group outlines. If a group's members span non-adjacent
+ * layers (gap > 1 layer), the outline is split into separate boxes
+ * per cluster. Only the first cluster gets the label.
+ */
 function positionGroups(
   groups: HomelabDocument['groups'],
   devices: Device[],
@@ -409,37 +414,76 @@ function positionGroups(
 
   const pad = opts.groupPadding
   const topPad = pad + 16
+  const result: PositionedGroup[] = []
 
-  return groups
-    .map((group) => {
-      const members = devices.filter((d) => d.group === group.id)
-      if (members.length === 0) return null
+  for (const group of groups) {
+    const members = devices.filter((d) => d.group === group.id)
+    if (members.length === 0) continue
+
+    // Get positioned nodes for members
+    const memberNodes = members.map((m) => nodeMap.get(m.id)).filter(Boolean) as PositionedNode[]
+
+    if (memberNodes.length === 0) continue
+
+    // Cluster by depth — merge consecutive depths
+    const byDepth = new Map<number, PositionedNode[]>()
+    for (const node of memberNodes) {
+      const list = byDepth.get(node.depth) ?? []
+      list.push(node)
+      byDepth.set(node.depth, list)
+    }
+
+    const depths = Array.from(byDepth.keys()).sort((a, b) => a - b)
+
+    // Walk depths and cluster consecutive ones
+    const clusters: PositionedNode[][] = []
+    let currentCluster: PositionedNode[] = []
+    let lastDepth = -Infinity
+
+    for (const depth of depths) {
+      if (depth - lastDepth > 1 && currentCluster.length > 0) {
+        clusters.push(currentCluster)
+        currentCluster = []
+      }
+      currentCluster.push(...byDepth.get(depth)!)
+      lastDepth = depth
+    }
+    if (currentCluster.length > 0) {
+      clusters.push(currentCluster)
+    }
+
+    // Create a PositionedGroup for each cluster
+    for (let ci = 0; ci < clusters.length; ci++) {
+      const cluster = clusters[ci]
 
       let minX = Infinity,
         minY = Infinity,
         maxX = -Infinity,
         maxY = -Infinity
 
-      for (const m of members) {
-        const node = nodeMap.get(m.id)
-        if (!node) continue
+      for (const node of cluster) {
         minX = Math.min(minX, node.x)
         minY = Math.min(minY, node.y)
         maxX = Math.max(maxX, node.x + node.width)
         maxY = Math.max(maxY, node.y + node.height)
       }
 
-      if (!isFinite(minX)) return null
+      if (!isFinite(minX)) continue
 
-      return {
-        group,
+      // Only the first cluster gets the label via extra top padding
+      const isFirst = ci === 0
+
+      result.push({
+        group: isFirst ? group : { ...group, name: '' }, // empty name hides the label
         x: minX - pad,
-        y: minY - topPad,
+        y: minY - (isFirst ? topPad : pad),
         width: maxX - minX + pad * 2,
-        height: maxY - minY + topPad + pad,
-      }
-    })
-    .filter(Boolean) as PositionedGroup[]
+        height: maxY - minY + (isFirst ? topPad : pad) + pad,
+      })
+    }
+  }
+
+  return result
 }
 
 // ─── Normalization & bounds ───────────────────────────────────────

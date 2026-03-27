@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { layout } from '../src/layout'
-import { DEFAULT_LAYOUT_OPTIONS } from '../src/types'
-import type { HomelabDocument, PositionedGraph } from '../src/types'
 import { buildDoc, buildDevice, buildConnection, buildDocWithChildren } from './fixtures'
+import { DEFAULT_LAYOUT_OPTIONS } from '../src/types'
+import { layout } from '../src/layout'
+import type { HomelabDocument, PositionedGraph } from '../src/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
