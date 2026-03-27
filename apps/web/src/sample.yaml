@@ -363,4 +363,8 @@ connections:
   - from: maverick
     to: tailscale
     type: vpn
+<<<<<<<< HEAD:apps/web/src/sample.yaml
     label: tailscale
+========
+    label: tailscale`
+>>>>>>>> master:apps/web/src/sampleYaml.ts
