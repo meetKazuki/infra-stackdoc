@@ -1,14 +1,11 @@
-# ── Stage 1: Shared Dependencies ──────────────────────────────────
 FROM node:22-alpine AS deps
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@8.6.1 --activate
 
-# Copy workspace configuration
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY tsconfig.json ./
 
-# Copy all package.json files to cache dependencies
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/core/package.json packages/core/
@@ -18,16 +15,13 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-# ── Stage 2a: Web Builder ─────────────────────────────────────────
 FROM deps AS web-builder
 RUN pnpm --filter @homelab-stackdoc/web... build
 
-# ── Stage 2b: API Builder ─────────────────────────────────────────
 FROM deps AS api-builder
 RUN pnpm --filter @homelab-stackdoc/api... build && \
     pnpm --filter @homelab-stackdoc/api deploy /app/api-prod --prod
 
-# ── Stage 3: Production Web (Target: web) ─────────────────────────
 FROM nginx:alpine AS web
 
 RUN apk add --no-cache curl
@@ -59,7 +53,6 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:80/ || exit 1
 
-# ── Stage 4: Production API (Target: api) ─────────────────────────
 FROM node:22-alpine AS api
 WORKDIR /app
 
