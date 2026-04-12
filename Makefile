@@ -60,7 +60,7 @@ clean-dist: ## Remove build artifacts only
 
 # ── Type checking ──────────────────────────────────────────────────
 
-typecheck: core-typecheck renderer-typecheck web-typecheck ## Typecheck all packages
+typecheck: core-build core-typecheck renderer-typecheck web-typecheck ## Typecheck all packages
 
 core-typecheck: ## Typecheck packages/core
 	$(PNPM) --filter @homelab-stackdoc/core typecheck

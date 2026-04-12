@@ -20,6 +20,9 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run -r build
 
+# Create lean API bundle with production deps only
+RUN pnpm --filter @homelab-stackdoc/api deploy /app/api-prod --prod
+
 # ── Stage 2: Production Web (Target: web) ──────────────────────────
 FROM nginx:alpine AS web
 
@@ -56,16 +59,13 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 FROM node:22-alpine AS api
 WORKDIR /app
 
-RUN corepack enable
-
-# Copy built artifacts and necessary files from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/core/package.json ./packages/core/
-COPY --from=builder /app/packages/core/dist ./packages/core/dist
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/apps/api/package.json ./apps/api/
+# Copy only the lean production bundle (API dist + prod deps)
+COPY --from=builder /app/api-prod .
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["node", "apps/api/dist/main.js"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget -qO- http://localhost:3000/api || exit 1
+
+CMD ["node", "dist/main.js"]
