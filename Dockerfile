@@ -1,30 +1,30 @@
-FROM node:20-alpine AS build
+# ── Stage 1: Base Builder ──────────────────────────────────────────
+FROM node:22-alpine AS builder
+WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@8.6.1 --activate
 
-WORKDIR /app
-
+# Copy workspace configuration
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY tsconfig.json ./
 
-RUN mkdir -p packages/core packages/renderer apps/web
-
+# Copy all package.json files to cache dependencies
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
 COPY packages/core/package.json packages/core/
-COPY packages/renderer/package.json packages/renderer
-COPY apps/web/package.json apps/web
+COPY packages/renderer/package.json packages/renderer/
 
 RUN pnpm install --frozen-lockfile
 
-COPY packages packages
-COPY apps apps
-COPY tsconfig.json ./
+# Copy source code and build topologically
+COPY . .
+RUN pnpm run -r build
 
-RUN pnpm --filter @homelab-stackdoc/web build
-
-FROM nginx:alpine
+# ── Stage 2: Production Web (Target: web) ──────────────────────────
+FROM nginx:alpine AS web
 
 RUN apk add --no-cache curl
-
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 
 COPY <<'EOF' /etc/nginx/conf.d/default.conf
 server {
@@ -35,36 +35,36 @@ server {
 
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
-    add_header Permissions-Policy "interest-cohort=()" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'none';" always;
 
     location / {
         try_files $uri $uri/ /index.html;
     }
-    location /assets {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
 
     gzip on;
-    gzip_vary on;
-    gzip_proxied any;
-    gzip_min_length 256;
-    gzip_types
-        text/plain
-        text/css
-        text/javascript
-        application/json
-        application/javascript
-        application/xml
-        image/svg+xml;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 }
 EOF
 
 EXPOSE 80
-
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:80/ || exit 1
+
+# ── Stage 3: Production API (Target: api) ──────────────────────────
+FROM node:22-alpine AS api
+WORKDIR /app
+
+RUN corepack enable
+
+# Copy built artifacts and necessary files from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/core/dist ./packages/core/dist
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package.json ./apps/api/
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+CMD ["node", "apps/api/dist/main.js"]

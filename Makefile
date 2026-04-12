@@ -6,8 +6,9 @@
 # ── Variables ──────────────────────────────────────────────────────
 
 APP_NAME    := homelab-stackdoc
-DOCKER_PORT := 8080
 PNPM        := pnpm
+DOCKER_PORT := 8080
+COMPOSE 		:= docker compose
 
 # ── Default ────────────────────────────────────────────────────────
 
@@ -19,19 +20,40 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-# ── Development ────────────────────────────────────────────────────
+# ── Local Infrastructure ───────────────────────────────────────────
+
+infra-up: ## Start local databases and services in the background
+	$(COMPOSE) up -d postgres
+
+infra-down: ## Stop local databases and services
+	$(COMPOSE) stop postgres
+
+infra-logs: ## Tail logs for local infrastructure
+	$(COMPOSE) logs -f
+
+infra-nuke: ## DESTROY local databases and wipe all volume data
+	$(COMPOSE) -v
+
+# ── Orchestration ──────────────────────────────────────────────────
 
 install: ## Install all dependencies
 	$(PNPM) install
 
-dev: ## Start the dev server
-	$(PNPM) --filter @homelab-stackdoc/web dev
+dev: ## Start the entire stack (API and Web) concurrently with hot-reload
+	FORCE_COLOR=1 $(PNPM) run --parallel --filter @homelab-stackdoc/api --filter @homelab-stackdoc/web dev
 
-build: ## Production build
-	$(PNPM) --filter @homelab-stackdoc/web build
+build: ## Build the entire monorepo topologically (Packages -> Apps)
+	$(PNPM) run -r build
 
 preview: ## Serve the production build locally
 	$(PNPM) --filter @homelab-stackdoc/web preview
+
+clean: ## Remove all build artifacts and node_modules
+	find . -name "dist" -type d -prune -exec rm -rf '{}' +
+	find . -name "node_modules" -type d -prune -exec rm -rf '{}' +
+
+clean-dist: ## Remove build artifacts only
+	find . -name "dist" -type d -prune -exec rm -rf '{}' +
 
 # ── Type checking ──────────────────────────────────────────────────
 
@@ -45,7 +67,6 @@ renderer-typecheck: ## Typecheck packages/renderer
 
 web-typecheck: ## Typecheck apps/web
 	cd apps/web && npx tsc --noEmit
-
 
 # ── Testing ────────────────────────────────────────────────────────
 
@@ -73,22 +94,6 @@ docker-restart: docker-stop docker-build docker-run ## Rebuild and restart Docke
 
 docker-logs: ## Tail Docker container logs
 	docker logs -f $(APP_NAME)
-
-# ── Cleanup ────────────────────────────────────────────────────────
-
-clean: ## Remove all build artifacts and node_modules
-	rm -rf apps/web/dist
-	rm -rf packages/core/dist
-	rm -rf packages/renderer/dist
-	rm -rf node_modules
-	rm -rf apps/web/node_modules
-	rm -rf packages/core/node_modules
-	rm -rf packages/renderer/node_modules
-
-clean-dist: ## Remove build artifacts only
-	rm -rf apps/web/dist
-	rm -rf packages/core/dist
-	rm -rf packages/renderer/dist
 
 # ── Utilities ──────────────────────────────────────────────────────
 
