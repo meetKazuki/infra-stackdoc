@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "tsc --project tsconfig.build.json",
     "start": "nest start",
     "dev": "tsc --project tsconfig.build.json && nest start --watch"
   },
