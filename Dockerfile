@@ -1,5 +1,5 @@
-# ── Stage 1: Base Builder ──────────────────────────────────────────
-FROM node:22-alpine AS builder
+# ── Stage 1: Shared Dependencies ──────────────────────────────────
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@8.6.1 --activate
@@ -16,18 +16,22 @@ COPY packages/renderer/package.json packages/renderer/
 
 RUN pnpm install --frozen-lockfile
 
-# Copy source code and build topologically
 COPY . .
-RUN pnpm run -r build
 
-# Create lean API bundle with production deps only
-RUN pnpm --filter @homelab-stackdoc/api deploy /app/api-prod --prod
+# ── Stage 2a: Web Builder ─────────────────────────────────────────
+FROM deps AS web-builder
+RUN pnpm --filter @homelab-stackdoc/web... build
 
-# ── Stage 2: Production Web (Target: web) ──────────────────────────
+# ── Stage 2b: API Builder ─────────────────────────────────────────
+FROM deps AS api-builder
+RUN pnpm --filter @homelab-stackdoc/api... build && \
+    pnpm --filter @homelab-stackdoc/api deploy /app/api-prod --prod
+
+# ── Stage 3: Production Web (Target: web) ─────────────────────────
 FROM nginx:alpine AS web
 
 RUN apk add --no-cache curl
-COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+COPY --from=web-builder /app/apps/web/dist /usr/share/nginx/html
 
 COPY <<'EOF' /etc/nginx/conf.d/default.conf
 server {
@@ -55,12 +59,13 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:80/ || exit 1
 
-# ── Stage 3: Production API (Target: api) ──────────────────────────
+# ── Stage 4: Production API (Target: api) ─────────────────────────
 FROM node:22-alpine AS api
 WORKDIR /app
 
-# Copy only the lean production bundle (API dist + prod deps)
-COPY --from=builder /app/api-prod .
+COPY --from=api-builder /app/api-prod/node_modules ./node_modules
+COPY --from=api-builder /app/api-prod/package.json ./
+COPY --from=api-builder /app/apps/api/dist ./dist
 
 ENV NODE_ENV=production
 EXPOSE 3000
