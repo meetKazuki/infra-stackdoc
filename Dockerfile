@@ -60,6 +60,7 @@ RUN corepack enable
 
 # Copy built artifacts and necessary files from builder
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/core/package.json ./packages/core/
 COPY --from=builder /app/packages/core/dist ./packages/core/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/

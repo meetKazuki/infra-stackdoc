@@ -1,7 +1,7 @@
 .PHONY: help install dev build preview clean typecheck lint \
         docker-build docker-run docker-stop \
         core-typecheck renderer-typecheck web-typecheck \
-        new-lockfile
+        core-build new-lockfile
 
 # ── Variables ──────────────────────────────────────────────────────
 
@@ -39,7 +39,10 @@ infra-nuke: ## DESTROY local databases and wipe all volume data
 install: ## Install all dependencies
 	$(PNPM) install
 
-dev: ## Start the entire stack (API and Web) concurrently with hot-reload
+core-build: ## Build the core package (required before dev)
+	$(PNPM) --filter @homelab-stackdoc/core build
+
+dev: core-build ## Start the entire stack (API and Web) concurrently with hot-reload
 	FORCE_COLOR=1 $(PNPM) run --parallel --filter @homelab-stackdoc/api --filter @homelab-stackdoc/web dev
 
 build: ## Build the entire monorepo topologically (Packages -> Apps)
