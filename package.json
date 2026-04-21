@@ -3,19 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "description": "Homelab documentation tool — Document and share your setup",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
-    "build": "cd apps/web && vite build",
-    "dev": "cd apps/web && vite",
+    "build": "make build",
+    "dev": "make dev",
     "format": "prettier --write \"**/*.{ts,tsx,json,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,json,css}\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "prepare": "husky",
-    "typecheck": "tsc --build"
+    "typecheck": "make typecheck"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -28,8 +24,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@typescript-eslint/eslint-plugin": "^8.57.2",
-    "@typescript-eslint/parser": "^8.57.2",
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
@@ -37,7 +31,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
-    "typescript": "^5.5.0",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.57.2"
   }
 }

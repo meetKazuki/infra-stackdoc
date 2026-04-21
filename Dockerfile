@@ -1,4 +1,5 @@
-FROM node:22-alpine AS deps
+# syntax=docker/dockerfile:1.7
+FROM node:24-alpine AS deps
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@8.6.1 --activate
@@ -11,7 +12,8 @@ COPY apps/web/package.json apps/web/
 COPY packages/core/package.json packages/core/
 COPY packages/renderer/package.json packages/renderer/
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 COPY . .
 
@@ -19,7 +21,8 @@ FROM deps AS web-builder
 RUN pnpm --filter @homelab-stackdoc/web... build
 
 FROM deps AS api-builder
-RUN pnpm --filter @homelab-stackdoc/api... build && \
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm --filter @homelab-stackdoc/api... build && \
     pnpm --filter @homelab-stackdoc/api deploy /app/api-prod --prod
 
 FROM nginx:alpine AS web
@@ -53,7 +56,7 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:80/ || exit 1
 
-FROM node:22-alpine AS api
+FROM node:24-alpine AS api
 WORKDIR /app
 
 COPY --from=api-builder /app/api-prod/node_modules ./node_modules
