@@ -1,6 +1,8 @@
 import { DataSource, DataSourceOptions } from 'typeorm'
 import { config } from '@/common/config'
 
+console.log('Database URL:', config().database.url)
+
 const dbOptions: DataSourceOptions = {
   type: 'postgres',
   url: config().database.url,

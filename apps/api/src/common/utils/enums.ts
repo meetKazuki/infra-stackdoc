@@ -5,4 +5,10 @@ enum Environment {
   PRODUCTION = 'production',
 }
 
-export { Environment }
+enum Visibility {
+  PUBLIC = 'public',
+  PRIVATE = 'private',
+  UNLISTED = 'unlisted',
+}
+
+export { Environment, Visibility }

@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 
 docs/coolify-ghcr.md
+
+*.tsbuildinfo

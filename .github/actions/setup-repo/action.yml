@@ -2,10 +2,10 @@ name: Setup Repository
 description: Install `pnpm`, configure `Node.js` with caching, and install dependencies.
 
 inputs:
-  node-version:
-    description: Node.js version to use
+  node-version-file:
+    description: Path to file specifying Node.js version (default '.nvmrc')
     required: false
-    default: "20"
+    default: ".nvmrc"
   pnpm-version:
     description: pnpm version (matches pnpm-lock.yaml format)
     required: false
@@ -22,7 +22,7 @@ runs:
     - name: Setup `Node.js` with `pnpm` store cache
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ inputs.node-version }}
+        node-version-file: ${{ inputs.node-version-file }}
         cache: pnpm
 
     - name: Install dependencies
