@@ -36,7 +36,7 @@ build-packages:
 build: build-packages
 	$(PNPM) --filter "./apps/**" run build
 
-typecheck:
+typecheck: build-packages
 	$(PNPM) --recursive --if-present run typecheck
 
 test:
