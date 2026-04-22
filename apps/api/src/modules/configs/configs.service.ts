@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
@@ -19,7 +20,21 @@ export class ConfigsService {
     return nanoid(8)
   }
 
+  private hashContent(yaml: string): string {
+    return createHash('sha256').update(yaml.trim()).digest('hex')
+  }
+
   async create(dto: CreateConfigDto & { _parsed?: HomelabDocument }): Promise<Config> {
+    const contentHash = this.hashContent(dto.yaml)
+
+    const existingHash = await this.configRepo.findOne({
+      where: { contentHash },
+      relations: ['tags'],
+    })
+    if (existingHash) {
+      return existingHash
+    }
+
     const slug = await this.generateSlug()
     const parsed = dto._parsed
     const title = parsed?.meta?.title || 'Untitled'
@@ -30,6 +45,7 @@ export class ConfigsService {
       title,
       yaml: dto.yaml,
       visibility: dto.visibility || Visibility.UNLISTED,
+      contentHash,
     })
 
     const saved = await this.configRepo.save(config)
@@ -55,6 +71,7 @@ export class ConfigsService {
       yaml: original.yaml,
       visibility: Visibility.UNLISTED,
       forkOf: original.slug,
+      contentHash: null,
     })
 
     const saved = await this.configRepo.save(forked)

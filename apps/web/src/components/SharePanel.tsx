@@ -1,4 +1,11 @@
 import React, { useState } from 'react'
+import { createConfig } from '../lib/api'
+
+interface SharePanelProps {
+  yaml: string
+  onExportPng: () => void
+  isExporting: boolean
+}
 
 const colors = {
   background: 'rgba(12, 21, 39, 0.95)',
@@ -13,12 +20,6 @@ const colors = {
 
 const fonts = {
   mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
-}
-
-interface SharePanelProps {
-  yaml: string
-  onExportPng: () => void
-  isExporting: boolean
 }
 
 const ActionButton: React.FC<{
@@ -70,6 +71,9 @@ const ActionButton: React.FC<{
 export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExporting }) => {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [shareResult, setShareResult] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
 
   const handleCopyYaml = async () => {
     try {
@@ -77,7 +81,6 @@ export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExp
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Fallback
       const textarea = document.createElement('textarea')
       textarea.value = yaml
       document.body.appendChild(textarea)
@@ -97,6 +100,38 @@ export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExp
     a.download = 'homelab-topology.yaml'
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleShareAsLink = async () => {
+    setSharing(true)
+    setShareError(null)
+    setShareResult(null)
+
+    try {
+      const result = await createConfig(yaml, 'unlisted')
+      const url = `${window.location.origin}/s/${result.slug}`
+
+      // Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(url)
+      } catch {
+        // Fallback
+        const textarea = document.createElement('textarea')
+        textarea.value = url
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+
+      setShareResult(url)
+      setTimeout(() => setShareResult(null), 5000)
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : 'Failed to share')
+      setTimeout(() => setShareError(null), 4000)
+    } finally {
+      setSharing(false)
+    }
   }
 
   return (
@@ -149,7 +184,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExp
             position: 'absolute',
             top: 40,
             right: 0,
-            width: 240,
+            width: 260,
             padding: 8,
             background: colors.background,
             border: `1px solid ${colors.border}`,
@@ -160,6 +195,63 @@ export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExp
             backdropFilter: 'blur(12px)',
           }}
         >
+          {/* Share as link — the new primary action */}
+          <ActionButton
+            onClick={handleShareAsLink}
+            disabled={sharing}
+            icon={
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" />
+              </svg>
+            }
+            label={sharing ? 'Creating link...' : shareResult ? 'Link copied!' : 'Share as Link'}
+            sublabel={
+              shareError ? shareError : shareResult ? shareResult : 'Generate a shareable URL'
+            }
+          />
+
+          {/* Status indicator for share result */}
+          {shareResult && (
+            <div
+              style={{
+                padding: '6px 10px',
+                background: `${colors.green}10`,
+                border: `1px solid ${colors.green}25`,
+                borderRadius: 5,
+                fontSize: 9,
+                color: colors.green,
+                fontFamily: fonts.mono,
+                wordBreak: 'break-all',
+              }}
+            >
+              {shareResult}
+            </div>
+          )}
+
+          {shareError && (
+            <div
+              style={{
+                padding: '6px 10px',
+                background: 'rgba(255,23,68,0.1)',
+                border: '1px solid rgba(255,23,68,0.25)',
+                borderRadius: 5,
+                fontSize: 9,
+                color: '#ff1744',
+                fontFamily: fonts.mono,
+              }}
+            >
+              {shareError}
+            </div>
+          )}
+
+          <div
+            style={{
+              height: 1,
+              background: colors.border,
+              margin: '2px 0',
+            }}
+          />
+
           <ActionButton
             onClick={onExportPng}
             disabled={isExporting}

@@ -33,6 +33,9 @@ export class Config {
   @Column({ name: 'view_count', default: 0 })
   viewCount!: number
 
+  @Column({ type: 'varchar', name: 'content_hash', nullable: true, unique: true })
+  contentHash?: string | null
+
   @OneToMany(() => ConfigTag, (tag) => tag.config, { cascade: true, eager: true })
   tags!: Relation<ConfigTag[]>
 
