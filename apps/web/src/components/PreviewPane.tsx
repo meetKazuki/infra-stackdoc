@@ -1,8 +1,8 @@
 import html2canvas from 'html2canvas'
 import React, { useRef, useState, useCallback } from 'react'
+import type { PositionedGraph, ValidationError, Device, Connection } from '@homelab-stackdoc/core'
 import { SharePanel } from './SharePanel'
 import { TopologyCanvas } from '@homelab-stackdoc/renderer'
-import type { PositionedGraph, ValidationError, Device, Connection } from '@homelab-stackdoc/core'
 
 interface PreviewPaneProps {
   graph: PositionedGraph | null
