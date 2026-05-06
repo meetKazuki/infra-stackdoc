@@ -33,7 +33,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8087',
+        target: 'http://stackdoc.localhost:8087',
         changeOrigin: true,
       },
     },

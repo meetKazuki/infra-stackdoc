@@ -3,15 +3,22 @@ import {
   Get,
   Post,
   Delete,
+  Patch,
   Param,
   Body,
   Query,
+  Req,
   UsePipes,
+  UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common'
+import type { Request } from 'express'
 import { ConfigsService } from './configs.service'
-import { CreateConfigDto } from './configs.dto'
+import { CreateConfigDto, UpdateConfigDto } from './configs.dto'
+import { AuthGuard } from '@/modules/auth/auth.guard'
+import { OptionalAuthGuard } from '@/modules/auth/auth-optional.guard'
 import { YamlValidationPipe } from '@/common/pipes/yaml-validation.pipe'
 
 @Controller('configs')
@@ -19,9 +26,11 @@ export class ConfigsController {
   constructor(private readonly configsService: ConfigsService) {}
 
   @Post()
+  @UseGuards(OptionalAuthGuard)
   @UsePipes(YamlValidationPipe)
-  async create(@Body() dto: CreateConfigDto) {
-    const config = await this.configsService.create(dto)
+  async create(@Body() dto: CreateConfigDto, @Req() request: Request) {
+    const user = request.user
+    const config = await this.configsService.create(dto, user?.id)
     return {
       slug: config.slug,
       title: config.title,
@@ -30,13 +39,26 @@ export class ConfigsController {
   }
 
   @Post(':slug/fork')
-  async fork(@Param('slug') slug: string) {
-    const config = await this.configsService.fork(slug)
+  @UseGuards(OptionalAuthGuard)
+  async fork(@Param('slug') slug: string, @Req() request: Request) {
+    const user = request.user
+    const config = await this.configsService.fork(slug, user?.id)
     return {
       slug: config.slug,
       title: config.title,
       url: `/s/${config.slug}`,
     }
+  }
+
+  @Get('user/me')
+  @UseGuards(AuthGuard)
+  async myConfigs(@Req() request: Request) {
+    const user = request.user
+    if (!user) {
+      throw new ForbiddenException()
+    }
+
+    return this.configsService.findByUserId(user.id)
   }
 
   @Get()
@@ -59,12 +81,49 @@ export class ConfigsController {
       tags: config.tags.map((t) => t.tag),
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,
+      author: config.user
+        ? { username: config.user.username, avatarUrl: config.user.avatarUrl }
+        : null,
+    }
+  }
+
+  @Patch(':slug')
+  @UseGuards(AuthGuard)
+  @UsePipes(YamlValidationPipe)
+  async update(@Param('slug') slug: string, @Body() dto: UpdateConfigDto, @Req() request: Request) {
+    const user = request.user
+    if (!user) {
+      throw new ForbiddenException()
+    }
+
+    const config = await this.configsService.findBySlug(slug)
+
+    if (config.userId && config.userId !== user.id) {
+      throw new ForbiddenException('You can only edit your own configs')
+    }
+
+    const updated = await this.configsService.update(slug, dto)
+    return {
+      slug: updated.slug,
+      title: updated.title,
+      url: `/s/${updated.slug}`,
     }
   }
 
   @Delete(':slug')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('slug') slug: string) {
+  async remove(@Param('slug') slug: string, @Req() request: Request) {
+    const user = request.user
+    if (!user) {
+      throw new ForbiddenException()
+    }
+
+    const config = await this.configsService.findBySlug(slug)
+    if (config.userId && config.userId !== user.id) {
+      throw new ForbiddenException('You can only delete your own configs')
+    }
+
     await this.configsService.remove(slug)
   }
 }

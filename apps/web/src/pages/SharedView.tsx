@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { parse, layout, type Device } from '@homelab-stackdoc/core'
+import { parse, layout } from '@homelab-stackdoc/core'
 import { TopologyCanvas } from '@homelab-stackdoc/renderer'
-import { fetchConfig, forkConfig } from '../lib/api'
-import type { SharedConfig } from '../lib/api'
+import { buildDeviceMap } from '../lib/device'
+import { fetchConfig, forkConfig, deleteConfig } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
+import { UserMenu } from '../components/UserMenu'
+import type { SharedConfig } from '../lib/api.types'
 
 const colors = {
   background: '#080f1e',
@@ -22,25 +25,15 @@ const fonts = {
   mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
 }
 
-function buildDeviceMap(devices: Device[]): Map<string, Device> {
-  const map = new Map<string, Device>()
-  const walk = (devs: Device[]) => {
-    for (const d of devs) {
-      map.set(d.id, d)
-      if (d.children) walk(d.children)
-    }
-  }
-  walk(devices)
-  return map
-}
-
 export const SharedView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   const [config, setConfig] = useState<SharedConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (!slug) return
@@ -72,20 +65,43 @@ export const SharedView: React.FC = () => {
     }
   }, [config])
 
+  const isOwner = Boolean(config?.author && user && config.author.username === user.username)
+
   const handleFork = useCallback(async () => {
     if (!slug) return
     try {
-      await forkConfig(slug)
-      // Open in editor with the YAML pre-loaded
-      navigate('/', { state: { yaml: config?.yaml } })
+      const result = await forkConfig(slug)
+      // Forked config is saved server-side — navigate to its shared view so the user
+      // sees the new slug. (Editor with route state would lose the slug on refresh.)
+      navigate(`/s/${result.slug}`)
     } catch (err) {
       console.error('Fork failed:', err)
     }
-  }, [slug, config, navigate])
+  }, [slug, navigate])
 
   const handleOpenInEditor = useCallback(() => {
     navigate('/', { state: { yaml: config?.yaml } })
   }, [config, navigate])
+
+  const handleEditOwnConfig = useCallback(() => {
+    if (!slug) return
+    navigate(`/edit/${slug}`)
+  }, [slug, navigate])
+
+  const handleDelete = useCallback(async () => {
+    if (!slug || !config) return
+    const confirmed = window.confirm(`Delete "${config.title}"? This cannot be undone.`)
+    if (!confirmed) return
+
+    setDeleting(true)
+    try {
+      await deleteConfig(slug)
+      navigate('/')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete config')
+      setDeleting(false)
+    }
+  }, [slug, config, navigate])
 
   // Loading state
   if (loading) {
@@ -145,7 +161,7 @@ export const SharedView: React.FC = () => {
     )
   }
 
-  // No valid graph
+  // No valid graph — still let the user open it in editor to fix.
   if (!graph) {
     return (
       <div
@@ -165,7 +181,7 @@ export const SharedView: React.FC = () => {
         <div style={{ fontSize: 32, opacity: 0.4 }}>⚠</div>
         <div>This config has invalid YAML</div>
         <button
-          onClick={handleOpenInEditor}
+          onClick={isOwner ? handleEditOwnConfig : handleOpenInEditor}
           style={{
             padding: '8px 16px',
             background: 'transparent',
@@ -177,7 +193,7 @@ export const SharedView: React.FC = () => {
             fontSize: 12,
           }}
         >
-          Open in Editor to Fix
+          {isOwner ? 'Edit to Fix' : 'Open in Editor to Fix'}
         </button>
       </div>
     )
@@ -190,32 +206,102 @@ export const SharedView: React.FC = () => {
         width: '100vw',
         background: colors.background,
         position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      {/* Topology canvas — full screen */}
-      <TopologyCanvas graph={graph} deviceMap={deviceMap} connections={connections} />
+      {/* Topology canvas — takes remaining vertical space. The canvas's own
+          bottom-anchored controls (zoom, fit, reset) now clear the shared
+          bottom bar because they're positioned within this flex item, not
+          the viewport. */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          position: 'relative',
+        }}
+      >
+        <TopologyCanvas graph={graph} deviceMap={deviceMap} connections={connections} />
+
+        {/* User menu — sits below the canvas top header so the legend keeps
+            its full width. */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 56,
+            right: 16,
+            zIndex: 15,
+          }}
+        >
+          <UserMenu />
+        </div>
+      </div>
 
       {/* Bottom bar — shared config info */}
       <div
         style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 44,
+          flexShrink: 0,
+          minHeight: 44,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 20px',
+          padding: '6px 20px',
           background: 'rgba(8,15,30,0.92)',
           backdropFilter: 'blur(8px)',
           borderTop: `1px solid ${colors.border}`,
           fontFamily: fonts.mono,
           zIndex: 10,
+          gap: 12,
+          flexWrap: 'wrap',
         }}
       >
-        {/* Left: metadata */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {/* Left: author + metadata */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {config.author && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {config.author.avatarUrl && (
+                <img
+                  src={config.author.avatarUrl}
+                  alt={config.author.username}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 9,
+                    border: `1px solid ${colors.border}`,
+                  }}
+                />
+              )}
+              <a
+                href={`https://github.com/${config.author.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: colors.textSecondary,
+                  fontSize: 10,
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                @{config.author.username}
+              </a>
+              {isOwner && (
+                <span
+                  style={{
+                    padding: '1px 6px',
+                    background: `${colors.primary}15`,
+                    border: `1px solid ${colors.primary}44`,
+                    borderRadius: 8,
+                    color: colors.primary,
+                    fontSize: 8,
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  YOU
+                </span>
+              )}
+            </div>
+          )}
           <span style={{ color: colors.textSecondary, fontSize: 10 }}>Shared topology</span>
           {config.forkOf && (
             <span style={{ color: colors.textMuted, fontSize: 10 }}>
@@ -229,68 +315,102 @@ export const SharedView: React.FC = () => {
 
         {/* Right: actions */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={handleOpenInEditor}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '5px 12px',
-              background: 'transparent',
-              border: `1px solid ${colors.border}`,
-              borderRadius: 5,
-              color: colors.textSecondary,
-              cursor: 'pointer',
-              fontFamily: fonts.mono,
-              fontSize: 10,
-              fontWeight: 600,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = colors.borderHover
-              e.currentTarget.style.color = colors.primary
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = colors.border
-              e.currentTarget.style.color = colors.textSecondary
-            }}
-          >
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-            </svg>
-            EDIT
-          </button>
-          <button
-            onClick={handleFork}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '5px 12px',
-              background: `${colors.primary}15`,
-              border: `1px solid ${colors.primary}44`,
-              borderRadius: 5,
-              color: colors.primary,
-              cursor: 'pointer',
-              fontFamily: fonts.mono,
-              fontSize: 10,
-              fontWeight: 600,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = `${colors.primary}25`
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = `${colors.primary}15`
-            }}
-          >
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 3a3 3 0 00-1 5.83v6.34a3.001 3.001 0 102 0V15a2 2 0 002-2V9h3.17a3.001 3.001 0 100-2H9v6a4 4 0 01-4 4v.17A3.001 3.001 0 006 3z" />
-            </svg>
-            FORK
-          </button>
+          {isOwner ? (
+            <>
+              <ActionPill
+                onClick={handleDelete}
+                disabled={deleting}
+                color={colors.red}
+                label={deleting ? 'DELETING...' : 'DELETE'}
+                icon={
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                  </svg>
+                }
+              />
+              <ActionPill
+                onClick={handleEditOwnConfig}
+                color={colors.primary}
+                label="EDIT"
+                primary
+                icon={
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                  </svg>
+                }
+              />
+            </>
+          ) : (
+            <>
+              <ActionPill
+                onClick={handleOpenInEditor}
+                color={colors.textSecondary}
+                label="OPEN IN EDITOR"
+                icon={
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                  </svg>
+                }
+              />
+              <ActionPill
+                onClick={handleFork}
+                color={colors.primary}
+                label="FORK"
+                primary
+                icon={
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 3a3 3 0 00-1 5.83v6.34a3.001 3.001 0 102 0V15a2 2 0 002-2V9h3.17a3.001 3.001 0 100-2H9v6a4 4 0 01-4 4v.17A3.001 3.001 0 006 3z" />
+                  </svg>
+                }
+              />
+            </>
+          )}
         </div>
       </div>
     </div>
+  )
+}
+
+const ActionPill: React.FC<{
+  onClick: () => void
+  label: string
+  icon: React.ReactNode
+  color: string
+  primary?: boolean
+  disabled?: boolean
+}> = ({ onClick, label, icon, color, primary, disabled }) => {
+  const [hovered, setHovered] = useState(false)
+
+  const baseBg = primary ? `${color}15` : 'transparent'
+  const hoverBg = primary ? `${color}25` : `${color}10`
+  const baseBorder = primary ? `1px solid ${color}44` : `1px solid ${colors.border}`
+  const hoverBorder = `1px solid ${color}88`
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '5px 12px',
+        background: hovered && !disabled ? hoverBg : baseBg,
+        border: hovered && !disabled ? hoverBorder : baseBorder,
+        borderRadius: 5,
+        color: primary ? color : hovered && !disabled ? color : colors.textSecondary,
+        cursor: disabled ? 'wait' : 'pointer',
+        fontFamily: fonts.mono,
+        fontSize: 10,
+        fontWeight: 600,
+        transition: 'all 0.15s',
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }

@@ -10,3 +10,13 @@ export class CreateConfigDto {
   @IsEnum(Visibility)
   visibility?: Visibility
 }
+
+export class UpdateConfigDto {
+  @IsString()
+  @IsNotEmpty()
+  yaml!: string
+
+  @IsOptional()
+  @IsEnum(Visibility)
+  visibility?: Visibility
+}

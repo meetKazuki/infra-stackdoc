@@ -11,4 +11,12 @@ enum Visibility {
   UNLISTED = 'unlisted',
 }
 
-export { Environment, Visibility }
+enum AuthProvider {
+  GOOGLE = 'google',
+  FACEBOOK = 'facebook',
+  GITHUB = 'github',
+  TWITTER = 'twitter',
+  LINKEDIN = 'linkedin',
+}
+
+export { Environment, Visibility, AuthProvider }

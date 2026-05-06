@@ -1,7 +1,36 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import React from 'react'
+import { BrowserRouter, Routes, Route, useLocation, useParams, useNavigate } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { EditorPage } from './pages/EditorPage'
+import { fetchConfig } from './lib/api'
+import { MyConfigsPage } from './pages/MyConfigsPage'
 import { SharedView } from './pages/SharedView'
+
+const colors = {
+  background: '#080f1e',
+  textMuted: '#455a64',
+}
+
+const fonts = {
+  mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
+}
+
+const FullScreenMessage: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100vh',
+      background: colors.background,
+      color: colors.textMuted,
+      fontFamily: fonts.mono,
+      fontSize: 13,
+    }}
+  >
+    {children}
+  </div>
+)
 
 const EditorWithState: React.FC = () => {
   const location = useLocation()
@@ -9,13 +38,67 @@ const EditorWithState: React.FC = () => {
   return <EditorPage initialYaml={state?.yaml} />
 }
 
+// Wrapper for /edit/:slug — fetches the config, verifies the current user owns
+// it, and renders the editor in "edit existing" mode. If the user isn't the
+// owner (or isn't logged in), redirects to the read-only shared view.
+const EditOwnConfig: React.FC = () => {
+  const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
+  const { user, isLoading } = useAuth()
+
+  const [yaml, setYaml] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [authorChecked, setAuthorChecked] = useState(false)
+
+  useEffect(() => {
+    // Wait for auth to resolve before checking ownership.
+    if (!slug || isLoading) return
+
+    let cancelled = false
+    fetchConfig(slug)
+      .then((config) => {
+        if (cancelled) return
+        const isOwner = Boolean(user && config.author && config.author.username === user.username)
+        if (!isOwner) {
+          // Bounce to shared view; user can fork from there if they want.
+          navigate(`/s/${slug}`, { replace: true })
+          return
+        }
+        setYaml(config.yaml)
+        setAuthorChecked(true)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : 'Failed to load config')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [slug, user, isLoading, navigate])
+
+  if (error) {
+    return <FullScreenMessage>{error}</FullScreenMessage>
+  }
+
+  if (!authorChecked || yaml === null) {
+    return <FullScreenMessage>Loading config...</FullScreenMessage>
+  }
+
+  return <EditorPage initialYaml={yaml} editingSlug={slug} />
+}
+
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<EditorWithState />} />
-        <Route path="/s/:slug" element={<SharedView />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<EditorWithState />} />
+          <Route path="/s/:slug" element={<SharedView />} />
+          <Route path="/edit/:slug" element={<EditOwnConfig />} />
+          <Route path="/my-configs" element={<MyConfigsPage />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
