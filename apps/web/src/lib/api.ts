@@ -1,28 +1,26 @@
-interface SharedConfig {
-  slug: string
-  title: string
-  yaml: string
-  visibility: string
-  viewCount: number
-  forkOf: string | null
-  tags: string[]
-  createdAt: string
-  updatedAt: string
-}
+import { CreateConfigResponse, MyConfig, SharedConfig, User } from './api.types'
 
-interface CreateConfigResponse {
-  slug: string
-  title: string
-  url: string
-}
-
+const AUTH_INVALIDATED = 'auth:invalidated'
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
+
+const defaultInit: RequestInit = { credentials: 'include' }
+
+function loginUrl(): string {
+  return `${API_BASE}/auth/github`
+}
+
+function notifyAuthInvalidated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_INVALIDATED))
+  }
+}
 
 async function createConfig(
   yaml: string,
   visibility: 'public' | 'unlisted' = 'unlisted',
 ): Promise<CreateConfigResponse> {
   const response = await fetch(`${API_BASE}/configs`, {
+    ...defaultInit,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ yaml, visibility }),
@@ -37,7 +35,10 @@ async function createConfig(
 }
 
 async function forkConfig(slug: string): Promise<CreateConfigResponse> {
-  const response = await fetch(`${API_BASE}/configs/${slug}/fork`, { method: 'POST' })
+  const response = await fetch(`${API_BASE}/configs/${slug}/fork`, {
+    ...defaultInit,
+    method: 'POST',
+  })
 
   if (!response.ok) {
     throw new Error(`Failed to fork config (${response.status})`)
@@ -46,8 +47,19 @@ async function forkConfig(slug: string): Promise<CreateConfigResponse> {
   return response.json()
 }
 
+async function fetchMe(): Promise<User | null> {
+  const response = await fetch(`${API_BASE}/auth/me`, defaultInit)
+
+  if (response.status === 401) return null
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user (${response.status})`)
+  }
+
+  return response.json()
+}
+
 async function fetchConfig(slug: string): Promise<SharedConfig> {
-  const response = await fetch(`${API_BASE}/configs/${slug}`)
+  const response = await fetch(`${API_BASE}/configs/${slug}`, defaultInit)
 
   if (!response.ok) {
     if (response.status === 404) {
@@ -59,4 +71,70 @@ async function fetchConfig(slug: string): Promise<SharedConfig> {
   return response.json()
 }
 
-export { createConfig, forkConfig, fetchConfig, CreateConfigResponse, SharedConfig }
+async function fetchMyConfigs(): Promise<MyConfig[]> {
+  const response = await fetch(`${API_BASE}/configs/user/me`, defaultInit)
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      notifyAuthInvalidated()
+      throw new Error('Not authenticated')
+    }
+    throw new Error(`Failed to load configs (${response.status})`)
+  }
+
+  return response.json()
+}
+
+async function logout(): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, { ...defaultInit, method: 'POST' })
+}
+
+async function updateConfig(
+  slug: string,
+  yaml: string,
+  visibility?: 'public' | 'unlisted',
+): Promise<CreateConfigResponse> {
+  const body: Record<string, unknown> = { yaml }
+  if (visibility) body.visibility = visibility
+
+  const response = await fetch(`${API_BASE}/configs/${slug}`, {
+    ...defaultInit,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    if (response.status === 401) notifyAuthInvalidated()
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.message || `Failed to update config (${response.status})`)
+  }
+
+  return response.json()
+}
+
+async function deleteConfig(slug: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/configs/${slug}`, {
+    ...defaultInit,
+    method: 'DELETE',
+  })
+
+  if (!response.ok && response.status !== 204) {
+    if (response.status === 401) notifyAuthInvalidated()
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.message || `Failed to delete config (${response.status})`)
+  }
+}
+
+export {
+  AUTH_INVALIDATED,
+  loginUrl,
+  createConfig,
+  forkConfig,
+  fetchMe,
+  fetchConfig,
+  fetchMyConfigs,
+  logout,
+  updateConfig,
+  deleteConfig,
+}

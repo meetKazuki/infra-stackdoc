@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useCallback } from 'react'
-import { parse, layout, type Device } from '@homelab-stackdoc/core'
+import { parse, layout } from '@homelab-stackdoc/core'
+import { buildDeviceMap } from '../lib/device'
 import { PreviewPane } from '../components/PreviewPane'
 import SAMPLE_YAML from '../sample.yaml?raw'
+import { UserMenu } from '../components/UserMenu'
 import { YamlEditor } from '../components/YamlEditor'
 
 interface EditorPageProps {
   initialYaml?: string
+  editingSlug?: string
 }
 
 const toggleButtonStyle: React.CSSProperties = {
@@ -29,19 +32,7 @@ const toggleButtonStyle: React.CSSProperties = {
   transition: 'all 0.15s',
 }
 
-function buildDeviceMap(devices: Device[]): Map<string, Device> {
-  const map = new Map<string, Device>()
-  const walk = (devs: Device[]) => {
-    for (const d of devs) {
-      map.set(d.id, d)
-      if (d.children) walk(d.children)
-    }
-  }
-  walk(devices)
-  return map
-}
-
-export const EditorPage: React.FC<EditorPageProps> = ({ initialYaml }) => {
+export const EditorPage: React.FC<EditorPageProps> = ({ initialYaml, editingSlug }) => {
   const [yaml, setYaml] = useState(initialYaml || SAMPLE_YAML)
   const [splitRatio, setSplitRatio] = useState(0.2)
   const [resizing, setResizing] = useState(false)
@@ -147,12 +138,26 @@ export const EditorPage: React.FC<EditorPageProps> = ({ initialYaml }) => {
           </svg>
         </button>
 
+        {/* User menu — sits below the canvas top header (which contains the
+            legend) and below the SharePanel button so neither overlaps. */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 96,
+            right: 16,
+            zIndex: 25,
+          }}
+        >
+          <UserMenu />
+        </div>
+
         <PreviewPane
           graph={graph}
           errors={errors}
           deviceMap={deviceMap}
           connections={connections}
           yaml={yaml}
+          editingSlug={editingSlug}
         />
       </div>
     </div>

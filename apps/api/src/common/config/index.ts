@@ -2,10 +2,10 @@ import { mergeDeepRight } from 'ramda'
 import { type DeepPartial } from 'ts-essentials'
 import defaultConfig from './default'
 import devConfig from './development'
-import { getEnvironmentValue } from '@/common/utils/env'
-import { Environment } from '@/common/utils/enums'
 import localConfig from './local'
 import prodConfig from './production'
+import { Environment } from '@/common/utils/enums'
+import { getEnvironmentValue } from '@/common/utils/env'
 
 interface Config {
   environment: Environment
@@ -14,7 +14,23 @@ interface Config {
     port: number
   }
 
+  auth: {
+    jwt: {
+      secret: string
+      expiresIn: string
+    }
+    github: {
+      clientId: string
+      clientSecret: string
+      callbackUrl: string
+    }
+  }
+
   database: {
+    url: string
+  }
+
+  client: {
     url: string
   }
 }

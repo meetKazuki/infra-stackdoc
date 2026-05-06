@@ -4,9 +4,10 @@ import { Config } from './configs.entity'
 import { ConfigsController } from './configs.controller'
 import { ConfigsService } from './configs.service'
 import { ConfigTag } from './config-tag.entity'
+import { AuthModule } from '@/modules/auth/auth.module'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Config, ConfigTag])],
+  imports: [AuthModule, TypeOrmModule.forFeature([Config, ConfigTag])],
   controllers: [ConfigsController],
   providers: [ConfigsService],
   exports: [ConfigsService],

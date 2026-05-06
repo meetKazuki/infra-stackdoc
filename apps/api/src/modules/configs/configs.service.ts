@@ -1,11 +1,11 @@
 import { createHash } from 'crypto'
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { FindOptionsWhere, IsNull, Repository } from 'typeorm'
 import type { HomelabDocument } from '@homelab-stackdoc/core'
 import { Config } from './configs.entity'
 import { ConfigTag } from './config-tag.entity'
-import { CreateConfigDto } from './configs.dto'
+import { CreateConfigDto, UpdateConfigDto } from './configs.dto'
 import { Visibility } from '@/common/utils/enums'
 
 @Injectable()
@@ -24,15 +24,24 @@ export class ConfigsService {
     return createHash('sha256').update(yaml.trim()).digest('hex')
   }
 
-  async create(dto: CreateConfigDto & { _parsed?: HomelabDocument }): Promise<Config> {
+  async create(
+    dto: CreateConfigDto & { _parsed?: HomelabDocument },
+    userId?: string | null,
+  ): Promise<Config> {
     const contentHash = this.hashContent(dto.yaml)
 
-    const existingHash = await this.configRepo.findOne({
-      where: { contentHash },
-      relations: ['tags'],
+    const where: FindOptionsWhere<Config> = {
+      contentHash,
+      userId: userId ?? IsNull(),
+    }
+
+    const existing = await this.configRepo.findOne({
+      where,
+      relations: ['tags', 'user'],
     })
-    if (existingHash) {
-      return existingHash
+
+    if (existing) {
+      return existing
     }
 
     const slug = await this.generateSlug()
@@ -46,6 +55,7 @@ export class ConfigsService {
       yaml: dto.yaml,
       visibility: dto.visibility || Visibility.UNLISTED,
       contentHash,
+      userId: userId || null,
     })
 
     const saved = await this.configRepo.save(config)
@@ -57,11 +67,11 @@ export class ConfigsService {
 
     return this.configRepo.findOneOrFail({
       where: { id: saved.id },
-      relations: ['tags'],
+      relations: ['tags', 'user'],
     })
   }
 
-  async fork(slug: string): Promise<Config> {
+  async fork(slug: string, userId?: string | null): Promise<Config> {
     const original = await this.findBySlug(slug)
 
     const newSlug = await this.generateSlug()
@@ -72,11 +82,12 @@ export class ConfigsService {
       visibility: Visibility.UNLISTED,
       forkOf: original.slug,
       contentHash: null,
+      userId: userId || null,
     })
 
     const saved = await this.configRepo.save(forked)
 
-    if (original.tags?.length > 0) {
+    if (original.tags && original.tags.length > 0) {
       const tagEntities = original.tags.map((t) =>
         this.tagRepo.create({ configId: saved.id, tag: t.tag }),
       )
@@ -85,14 +96,14 @@ export class ConfigsService {
 
     return this.configRepo.findOneOrFail({
       where: { id: saved.id },
-      relations: ['tags'],
+      relations: ['tags', 'user'],
     })
   }
 
   async findBySlug(slug: string): Promise<Config> {
     const config = await this.configRepo.findOne({
       where: { slug },
-      relations: ['tags'],
+      relations: ['tags', 'user'],
     })
 
     if (!config) {
@@ -107,13 +118,53 @@ export class ConfigsService {
   async findPublic(page = 1, limit = 20): Promise<{ data: Config[]; total: number }> {
     const [data, total] = await this.configRepo.findAndCount({
       where: { visibility: Visibility.PUBLIC },
-      relations: ['tags'],
+      relations: ['tags', 'user'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     })
 
     return { data, total }
+  }
+
+  async findByUserId(userId: string): Promise<Config[]> {
+    return this.configRepo.find({
+      where: { userId },
+      relations: ['tags'],
+      order: { updatedAt: 'DESC' },
+    })
+  }
+
+  async update(
+    slug: string,
+    dto: UpdateConfigDto & { _parsed?: HomelabDocument },
+  ): Promise<Config> {
+    const config = await this.findBySlug(slug)
+    const parsed = dto._parsed
+
+    config.yaml = dto.yaml
+    config.title = parsed?.meta?.title || config.title
+    config.contentHash = this.hashContent(dto.yaml)
+
+    if (dto.visibility) {
+      config.visibility = dto.visibility as Visibility
+    }
+
+    // Update tags
+    if (parsed?.meta?.tags) {
+      await this.tagRepo.delete({ configId: config.id })
+      const tagEntities = parsed.meta.tags.map((tag) =>
+        this.tagRepo.create({ configId: config.id, tag }),
+      )
+      await this.tagRepo.save(tagEntities)
+    }
+
+    await this.configRepo.save(config)
+
+    return this.configRepo.findOneOrFail({
+      where: { id: config.id },
+      relations: ['tags', 'user'],
+    })
   }
 
   async remove(slug: string): Promise<void> {
