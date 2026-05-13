@@ -38,10 +38,16 @@ export const EditorPage: React.FC<EditorPageProps> = ({ initialYaml, editingSlug
   const [resizing, setResizing] = useState(false)
   const [editorVisible, setEditorVisible] = useState(true)
 
-  const { graph, errors, deviceMap, connections } = useMemo(() => {
+  const { graph, errors, deviceMap, connections, networkCount } = useMemo(() => {
     const result = parse(yaml)
     if (!result.ok) {
-      return { graph: null, errors: result.errors, deviceMap: new Map(), connections: [] }
+      return {
+        graph: null,
+        errors: result.errors,
+        deviceMap: new Map(),
+        connections: [],
+        networkCount: 0,
+      }
     }
     try {
       const positioned = layout(result.document)
@@ -51,6 +57,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({ initialYaml, editingSlug
         errors: result.warnings,
         deviceMap: dMap,
         connections: result.document.connections ?? [],
+        networkCount: result.document.networks?.length ?? 0,
       }
     } catch (e) {
       return {
@@ -64,6 +71,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({ initialYaml, editingSlug
         ],
         deviceMap: new Map(),
         connections: [],
+        networkCount: 0,
       }
     }
   }, [yaml])
@@ -98,7 +106,14 @@ export const EditorPage: React.FC<EditorPageProps> = ({ initialYaml, editingSlug
       {editorVisible && (
         <>
           <div style={{ width: `${splitRatio * 100}%`, height: '100%' }}>
-            <YamlEditor value={yaml} onChange={setYaml} errors={errors} />
+            <YamlEditor
+              value={yaml}
+              onChange={setYaml}
+              errors={errors}
+              networkCount={networkCount}
+              deviceCount={deviceMap.size}
+              connectionCount={connections.length}
+            />
           </div>
           <div
             onMouseDown={onResizeStart}

@@ -46,11 +46,11 @@ export const SharedView: React.FC = () => {
       .finally(() => setLoading(false))
   }, [slug])
 
-  const { graph, deviceMap, connections } = useMemo(() => {
-    if (!config) return { graph: null, deviceMap: new Map(), connections: [] }
+  const { graph, deviceMap, connections, networkCount } = useMemo(() => {
+    if (!config) return { graph: null, deviceMap: new Map(), connections: [], networkCount: 0 }
 
     const result = parse(config.yaml)
-    if (!result.ok) return { graph: null, deviceMap: new Map(), connections: [] }
+    if (!result.ok) return { graph: null, deviceMap: new Map(), connections: [], networkCount: 0 }
 
     try {
       const positioned = layout(result.document)
@@ -59,9 +59,10 @@ export const SharedView: React.FC = () => {
         graph: positioned,
         deviceMap: dMap,
         connections: result.document.connections ?? [],
+        networkCount: result.document.networks?.length ?? 0,
       }
     } catch {
-      return { graph: null, deviceMap: new Map(), connections: [] }
+      return { graph: null, deviceMap: new Map(), connections: [], networkCount: 0 }
     }
   }, [config])
 
@@ -308,6 +309,11 @@ export const SharedView: React.FC = () => {
               forked from {config.forkOf}
             </span>
           )}
+          <CountsChip
+            networkCount={networkCount}
+            deviceCount={deviceMap.size}
+            connectionCount={connections.length}
+          />
           <span style={{ color: colors.textMuted, fontSize: 10 }}>
             {config.viewCount} view{config.viewCount !== 1 ? 's' : ''}
           </span>
@@ -414,3 +420,51 @@ const ActionPill: React.FC<{
     </button>
   )
 }
+
+const CountsChip: React.FC<{
+  networkCount: number
+  deviceCount: number
+  connectionCount: number
+}> = ({ networkCount, deviceCount, connectionCount }) => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '3px 8px',
+      border: `1px solid ${colors.border}`,
+      borderRadius: 4,
+      color: colors.textMuted,
+      fontSize: 9,
+      letterSpacing: '0.06em',
+      textTransform: 'uppercase',
+      fontWeight: 600,
+    }}
+  >
+    <span
+      style={{
+        width: 5,
+        height: 5,
+        borderRadius: 3,
+        background: colors.green,
+        boxShadow: `0 0 5px ${colors.green}`,
+      }}
+      aria-label="status valid"
+    />
+    <span>
+      {networkCount} {networkCount === 1 ? 'NETWORK' : 'NETWORKS'}
+    </span>
+    <span style={{ opacity: 0.5 }} aria-hidden="true">
+      ·
+    </span>
+    <span>
+      {deviceCount} {deviceCount === 1 ? 'DEVICE' : 'DEVICES'}
+    </span>
+    <span style={{ opacity: 0.5 }} aria-hidden="true">
+      ·
+    </span>
+    <span>
+      {connectionCount} {connectionCount === 1 ? 'CONNECTION' : 'CONNECTIONS'}
+    </span>
+  </div>
+)

@@ -23,6 +23,7 @@ import { yaml } from '@codemirror/lang-yaml'
 interface CodeMirrorEditorProps {
   value: string
   onChange: (value: string) => void
+  onCursorChange?: (line: number) => void
 }
 
 const theme = EditorView.theme({
@@ -120,11 +121,17 @@ const syntaxColors = EditorView.theme({
   '.cm-definition': { color: '#00e5ff' },
 })
 
-export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ value, onChange }) => {
+export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
+  value,
+  onChange,
+  onCursorChange,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+  const onCursorChangeRef = useRef(onCursorChange)
+  onCursorChangeRef.current = onCursorChange
 
   // Create editor on mount
   useEffect(() => {
@@ -133,6 +140,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ value, onCha
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged) {
         onChangeRef.current(update.state.doc.toString())
+      }
+      if (update.selectionSet || update.docChanged) {
+        const line = update.state.doc.lineAt(update.state.selection.main.head).number
+        onCursorChangeRef.current?.(line)
       }
     })
 
@@ -173,7 +184,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ value, onCha
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Sync external value changes (e.g. loading a new file)
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
