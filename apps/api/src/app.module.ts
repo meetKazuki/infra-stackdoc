@@ -1,13 +1,12 @@
 import { ConfigModule } from '@nestjs/config'
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
-import { AppController } from './app.controller'
-import { AppService } from './app.service'
 import { AuthModule } from './modules/auth/auth.module'
-import { config } from '@/common/config'
 import { ConfigsModule } from './modules/configs/configs.module'
-import { dbOptions } from '@/database/datasource'
+import { TemplateModule } from './modules/templates/templates.module'
 import { UsersModule } from './modules/users/user.module'
+import { config } from '@/common/config'
+import { dbOptions } from '@/database/datasource'
 
 @Module({
   imports: [
@@ -16,9 +15,10 @@ import { UsersModule } from './modules/users/user.module'
 
     AuthModule,
     ConfigsModule,
+    TemplateModule,
     UsersModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}

@@ -1,7 +1,14 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator'
-import { Visibility } from '@/common/utils/enums'
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  MaxLength,
+  IsNumberString,
+} from 'class-validator'
+import { GallerySort, Visibility } from '@/common/utils/enums'
 
-export class CreateConfigDto {
+class CreateConfigDto {
   @IsString()
   @IsNotEmpty()
   yaml!: string
@@ -11,7 +18,31 @@ export class CreateConfigDto {
   visibility?: Visibility
 }
 
-export class UpdateConfigDto {
+class ListConfigsQueryDto {
+  @IsOptional()
+  @IsEnum(GallerySort)
+  sort?: GallerySort
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  tag?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  search?: string
+
+  @IsOptional()
+  @IsNumberString()
+  page?: string
+
+  @IsOptional()
+  @IsNumberString()
+  limit?: string
+}
+
+class UpdateConfigDto {
   @IsString()
   @IsNotEmpty()
   yaml!: string
@@ -20,3 +51,5 @@ export class UpdateConfigDto {
   @IsEnum(Visibility)
   visibility?: Visibility
 }
+
+export { CreateConfigDto, ListConfigsQueryDto, UpdateConfigDto }

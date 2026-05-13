@@ -1,8 +1,17 @@
-import { CreateConfigResponse, MyConfig, SharedConfig, User } from './api.types'
+import {
+  CreateConfigResponse,
+  GalleryListResponse,
+  GalleryQuery,
+  MyConfig,
+  SharedConfig,
+  TemplateCategory,
+  TemplateDetail,
+  TemplatesListResponse,
+  User,
+} from './api.types'
 
 const AUTH_INVALIDATED = 'auth:invalidated'
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
-
 const defaultInit: RequestInit = { credentials: 'include' }
 
 function loginUrl(): string {
@@ -47,6 +56,24 @@ async function forkConfig(slug: string): Promise<CreateConfigResponse> {
   return response.json()
 }
 
+async function createTemplateFromSlug(slug: string): Promise<CreateConfigResponse> {
+  const response = await fetch(`${API_BASE}/templates/${slug}/use`, {
+    ...defaultInit,
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.message || `Failed to use template (${response.status})`)
+  }
+
+  return response.json()
+}
+
+async function logout(): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, { ...defaultInit, method: 'POST' })
+}
+
 async function fetchMe(): Promise<User | null> {
   const response = await fetch(`${API_BASE}/auth/me`, defaultInit)
 
@@ -85,8 +112,52 @@ async function fetchMyConfigs(): Promise<MyConfig[]> {
   return response.json()
 }
 
-async function logout(): Promise<void> {
-  await fetch(`${API_BASE}/auth/logout`, { ...defaultInit, method: 'POST' })
+async function fetchTemplates(
+  category?: TemplateCategory,
+  page = 1,
+  limit = 20,
+): Promise<TemplatesListResponse> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+
+  if (category) params.set('category', category)
+
+  const response = await fetch(`${API_BASE}/templates?${params.toString()}`, defaultInit)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load templates (${response.status})`)
+  }
+
+  return response.json()
+}
+
+async function fetchTemplate(slug: string): Promise<TemplateDetail> {
+  const response = await fetch(`${API_BASE}/templates/${slug}`, defaultInit)
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Template not found')
+    }
+    throw new Error(`Failed to fetch template (${response.status})`)
+  }
+
+  return response.json()
+}
+
+async function fetchGallery(query: GalleryQuery = {}): Promise<GalleryListResponse> {
+  const params = new URLSearchParams()
+  params.set('page', String(query.page ?? 1))
+  params.set('limit', String(query.limit ?? 20))
+  if (query.sort) params.set('sort', query.sort)
+  if (query.tag) params.set('tag', query.tag)
+  if (query.search) params.set('search', query.search)
+
+  const response = await fetch(`${API_BASE}/configs?${params.toString()}`, defaultInit)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load gallery (${response.status})`)
+  }
+
+  return response.json()
 }
 
 async function updateConfig(
@@ -131,10 +202,14 @@ export {
   loginUrl,
   createConfig,
   forkConfig,
+  createTemplateFromSlug,
+  logout,
   fetchMe,
   fetchConfig,
   fetchMyConfigs,
-  logout,
+  fetchTemplates,
+  fetchTemplate,
+  fetchGallery,
   updateConfig,
   deleteConfig,
 }

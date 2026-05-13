@@ -5,12 +5,6 @@ enum Environment {
   PRODUCTION = 'production',
 }
 
-enum Visibility {
-  PUBLIC = 'public',
-  PRIVATE = 'private',
-  UNLISTED = 'unlisted',
-}
-
 enum AuthProvider {
   GOOGLE = 'google',
   FACEBOOK = 'facebook',
@@ -19,4 +13,27 @@ enum AuthProvider {
   LINKEDIN = 'linkedin',
 }
 
-export { Environment, Visibility, AuthProvider }
+enum Visibility {
+  PUBLIC = 'public',
+  PRIVATE = 'private',
+  UNLISTED = 'unlisted',
+}
+
+enum TemplateCategory {
+  NETWORKING = 'networking',
+  MEDIA = 'media',
+  VIRTUALIZATION = 'virtualization',
+  STORAGE = 'storage',
+  MONITORING = 'monitoring',
+  HOME_AUTOMATION = 'home-automation',
+  GENERAL = 'general',
+}
+
+enum GallerySort {
+  RECENT = 'recent',
+  POPULAR = 'popular',
+  TRENDING = 'trending',
+  MOST_FORKED = 'most_forked',
+}
+
+export { Environment, Visibility, AuthProvider, TemplateCategory, GallerySort }

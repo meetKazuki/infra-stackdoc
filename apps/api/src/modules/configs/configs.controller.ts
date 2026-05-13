@@ -16,7 +16,7 @@ import {
 } from '@nestjs/common'
 import type { Request } from 'express'
 import { ConfigsService } from './configs.service'
-import { CreateConfigDto, UpdateConfigDto } from './configs.dto'
+import { CreateConfigDto, ListConfigsQueryDto, UpdateConfigDto } from './configs.dto'
 import { AuthGuard } from '@/modules/auth/auth.guard'
 import { OptionalAuthGuard } from '@/modules/auth/auth-optional.guard'
 import { YamlValidationPipe } from '@/common/pipes/yaml-validation.pipe'
@@ -62,10 +62,33 @@ export class ConfigsController {
   }
 
   @Get()
-  async findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
-    const p = Math.max(1, parseInt(page || '1', 10))
-    const l = Math.min(50, Math.max(1, parseInt(limit || '20', 10)))
-    return this.configsService.findPublic(p, l)
+  async findAll(@Query() query: ListConfigsQueryDto) {
+    const page = Math.max(1, parseInt(query.page || '1', 10))
+    const limit = Math.min(50, Math.max(1, parseInt(query.limit || '20', 10)))
+
+    const { data, total } = await this.configsService.findGallery({
+      page,
+      limit,
+      sort: query.sort,
+      tag: query.tag,
+      search: query.search,
+    })
+
+    return {
+      data: data.map((config) => ({
+        slug: config.slug,
+        title: config.title,
+        viewCount: config.viewCount,
+        forkCount: config.forkCount,
+        tags: config.tags.map((t) => t.tag),
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt,
+        author: config.user
+          ? { username: config.user.username, avatarUrl: config.user.avatarUrl }
+          : null,
+      })),
+      total,
+    }
   }
 
   @Get(':slug')

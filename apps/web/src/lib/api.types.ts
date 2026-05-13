@@ -42,4 +42,71 @@ interface MyConfig {
   updatedAt: string
 }
 
-export { SharedConfig, CreateConfigResponse, User, MyConfig }
+type TemplateCategory =
+  | 'networking'
+  | 'media'
+  | 'virtualization'
+  | 'storage'
+  | 'monitoring'
+  | 'home-automation'
+  | 'general'
+
+interface TemplateSummary {
+  slug: string
+  title: string
+  category: TemplateCategory | null
+  viewCount: number
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+interface TemplateDetail extends TemplateSummary {
+  yaml: string
+}
+
+interface TemplatesListResponse {
+  data: TemplateSummary[]
+  total: number
+}
+
+type GallerySort = 'recent' | 'popular' | 'most_forked'
+
+interface GallerySummary {
+  slug: string
+  title: string
+  viewCount: number
+  forkCount: number
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+  author: Author | null
+}
+
+interface GalleryListResponse {
+  data: GallerySummary[]
+  total: number
+}
+
+interface GalleryQuery {
+  sort?: GallerySort
+  tag?: string
+  search?: string
+  page?: number
+  limit?: number
+}
+
+export {
+  SharedConfig,
+  CreateConfigResponse,
+  User,
+  MyConfig,
+  TemplateCategory,
+  TemplateSummary,
+  TemplateDetail,
+  TemplatesListResponse,
+  GallerySummary,
+  GalleryListResponse,
+  GalleryQuery,
+  GallerySort,
+}
