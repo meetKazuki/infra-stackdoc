@@ -10,8 +10,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 import { ConfigTag } from './config-tag.entity'
+import { TemplateCategory, Visibility } from '@/common/utils/enums'
 import { User } from '@/modules/users/user.entity'
-import { Visibility } from '@/common/utils/enums'
 
 @Entity('configs')
 export class Config {
@@ -39,8 +39,17 @@ export class Config {
   @Column({ name: 'view_count', default: 0 })
   viewCount!: number
 
+  @Column({ name: 'fork_count', default: 0 })
+  forkCount!: number
+
   @Column({ type: 'varchar', name: 'content_hash', nullable: true })
   contentHash?: string | null
+
+  @Column({ name: 'is_template', default: false })
+  isTemplate!: boolean
+
+  @Column({ type: 'enum', enum: TemplateCategory, name: 'template_category', nullable: true })
+  templateCategory?: TemplateCategory | null
 
   @OneToMany(() => ConfigTag, (tag) => tag.config, { cascade: true, eager: true })
   tags!: Relation<ConfigTag[]>

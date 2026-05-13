@@ -3,14 +3,15 @@ import React, { useEffect, useState } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { EditorPage } from './pages/EditorPage'
 import { fetchConfig } from './lib/api'
+import { GalleryPage } from './pages/GalleryPage'
 import { MyConfigsPage } from './pages/MyConfigsPage'
-import { SharedView } from './pages/SharedView'
+import { SharedView } from './pages/SharedViewPage'
+import { TemplatesPage } from './pages/TemplatesPage'
 
 const colors = {
   background: '#080f1e',
   textMuted: '#455a64',
 }
-
 const fonts = {
   mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
 }
@@ -38,9 +39,6 @@ const EditorWithState: React.FC = () => {
   return <EditorPage initialYaml={state?.yaml} />
 }
 
-// Wrapper for /edit/:slug — fetches the config, verifies the current user owns
-// it, and renders the editor in "edit existing" mode. If the user isn't the
-// owner (or isn't logged in), redirects to the read-only shared view.
 const EditOwnConfig: React.FC = () => {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
@@ -97,6 +95,8 @@ export const App: React.FC = () => {
           <Route path="/s/:slug" element={<SharedView />} />
           <Route path="/edit/:slug" element={<EditOwnConfig />} />
           <Route path="/my-configs" element={<MyConfigsPage />} />
+          <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/gallery" element={<GalleryPage />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

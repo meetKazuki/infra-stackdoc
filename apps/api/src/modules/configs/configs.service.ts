@@ -6,7 +6,7 @@ import type { HomelabDocument } from '@homelab-stackdoc/core'
 import { Config } from './configs.entity'
 import { ConfigTag } from './config-tag.entity'
 import { CreateConfigDto, UpdateConfigDto } from './configs.dto'
-import { Visibility } from '@/common/utils/enums'
+import { GallerySort, Visibility } from '@/common/utils/enums'
 
 @Injectable()
 export class ConfigsService {
@@ -94,6 +94,8 @@ export class ConfigsService {
       await this.tagRepo.save(tagEntities)
     }
 
+    this.configRepo.increment({ id: original.id }, 'forkCount', 1).catch(() => {})
+
     return this.configRepo.findOneOrFail({
       where: { id: saved.id },
       relations: ['tags', 'user'],
@@ -124,6 +126,58 @@ export class ConfigsService {
       take: limit,
     })
 
+    return { data, total }
+  }
+
+  async findGallery(params: {
+    page?: number
+    limit?: number
+    sort?: GallerySort
+    tag?: string
+    search?: string
+    visibility?: Visibility
+  }): Promise<{ data: Config[]; total: number }> {
+    const page = params.page ?? 1
+    const limit = params.limit ?? 20
+    const sort = params.sort ?? GallerySort.RECENT
+    const visibility = params.visibility ?? Visibility.PUBLIC
+
+    const qb = this.configRepo
+      .createQueryBuilder('config')
+      .leftJoinAndSelect('config.tags', 'tags')
+      .leftJoinAndSelect('config.user', 'user')
+      .where('config.visibility = :visibility', { visibility })
+      .andWhere('config.isTemplate = :isTemplate', { isTemplate: false })
+
+    if (params.tag) {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM config_tags ct WHERE ct.config_id = config.id AND ct.tag = :tag)',
+        { tag: params.tag },
+      )
+    }
+
+    if (params.search) {
+      qb.andWhere('LOWER(config.title) LIKE LOWER(:search)', {
+        search: `%${params.search}%`,
+      })
+    }
+
+    switch (sort) {
+      case GallerySort.POPULAR:
+        qb.orderBy('config.viewCount', 'DESC').addOrderBy('config.createdAt', 'DESC')
+        break
+      case GallerySort.MOST_FORKED:
+        qb.orderBy('config.forkCount', 'DESC').addOrderBy('config.createdAt', 'DESC')
+        break
+      case GallerySort.RECENT:
+      default:
+        qb.orderBy('config.createdAt', 'DESC')
+        break
+    }
+
+    qb.skip((page - 1) * limit).take(limit)
+
+    const [data, total] = await qb.getManyAndCount()
     return { data, total }
   }
 
@@ -169,6 +223,11 @@ export class ConfigsService {
 
   async remove(slug: string): Promise<void> {
     const config = await this.findBySlug(slug)
+    const parentSlug = config.forkOf
     await this.configRepo.remove(config)
+
+    if (parentSlug) {
+      this.configRepo.decrement({ slug: parentSlug }, 'forkCount', 1).catch(() => {})
+    }
   }
 }
