@@ -12,4 +12,4 @@ import { ConfigsModule } from '@/modules/configs/configs.module'
   providers: [TemplateService],
   exports: [TemplateService],
 })
-export class TemplateGalleryModule {}
+export class TemplateModule {}

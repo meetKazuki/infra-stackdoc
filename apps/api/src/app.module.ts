@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { AuthModule } from './modules/auth/auth.module'
 import { ConfigsModule } from './modules/configs/configs.module'
-import { TemplateGalleryModule } from './modules/templates/templates.module'
+import { TemplateModule } from './modules/templates/templates.module'
 import { UsersModule } from './modules/users/user.module'
 import { config } from '@/common/config'
 import { dbOptions } from '@/database/datasource'
@@ -15,7 +15,7 @@ import { dbOptions } from '@/database/datasource'
 
     AuthModule,
     ConfigsModule,
-    TemplateGalleryModule,
+    TemplateModule,
     UsersModule,
   ],
   controllers: [],
