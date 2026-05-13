@@ -32,6 +32,8 @@ export interface Group {
   name: string
   style?: 'dashed' | 'solid' | 'none'
   color?: string
+  /** Optional id of a parent group. Enables nested (subgroup) outlines. */
+  parent?: string
 }
 
 export interface Device {
@@ -156,6 +158,12 @@ export interface PositionedGroup {
   y: number
   width: number
   height: number
+  /**
+   * Nesting depth in the group-parent tree (0 = top-level).
+   * Optional so test fixtures and pre-Phase-2a code that constructs
+   * PositionedGroup directly stay valid; renderers should default to 0.
+   */
+  depth?: number
 }
 
 export interface Point {
