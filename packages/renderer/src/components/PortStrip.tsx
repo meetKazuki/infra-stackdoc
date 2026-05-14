@@ -1,26 +1,34 @@
 import React, { useState } from 'react'
 import { colors, fonts } from '../theme'
 import type { DeviceInterfaces } from '@homelab-stackdoc/core'
-import type { PortAssignment } from '@homelab-stackdoc/core'
+import type { PortAssignment, EnumeratedPort } from '@homelab-stackdoc/core'
 
 interface PortStripProps {
   interfaces: DeviceInterfaces
   assignments: PortAssignment[]
   cardWidth: number
+  portEnumeration?: EnumeratedPort[]
   onPortHover?: (connectedTo: string | null) => void
 }
 
 const PORT_W = 18
 const PORT_H = 16
 const PORT_GAP = 3
+const LABEL_MAX_CHARS = 4 // Max characters shown directly under a port; longer labels truncate.
+
+function truncateLabel(label: string): string {
+  if (label.length <= LABEL_MAX_CHARS) return label
+  return `${label.slice(0, LABEL_MAX_CHARS - 1)}…`
+}
 
 const RJ45Port: React.FC<{
   active: boolean
   connectedTo?: string
   speed?: string
   index: number
+  label?: string
   onHover?: (connectedTo: string | null) => void
-}> = ({ active, connectedTo, speed, index, onHover }) => {
+}> = ({ active, connectedTo, speed, index, label, onHover }) => {
   const [hovered, setHovered] = useState(false)
   const activeColor = colors.green
 
@@ -33,6 +41,9 @@ const RJ45Port: React.FC<{
     setHovered(false)
     if (onHover) onHover(null)
   }
+
+  // Label takes precedence over the numeric index when present.
+  const captionText = label !== undefined ? truncateLabel(label) : String(index + 1)
 
   return (
     <div
@@ -102,20 +113,29 @@ const RJ45Port: React.FC<{
         )}
       </svg>
 
-      {/* Port number */}
+      {/* Caption: user label when declared, else numeric port index.
+        Per Phase 2b spec: active labels use the active color (green),
+        inactive use textMuted; rendered below the socket. */}
       <div
         style={{
           textAlign: 'center',
-          fontSize: 6,
-          color: active ? colors.textSecondary : colors.textMuted,
+          fontSize: label !== undefined ? 7 : 6,
+          color: active
+            ? label !== undefined
+              ? activeColor
+              : colors.textSecondary
+            : colors.textMuted,
           marginTop: 1,
           fontFamily: fonts.mono,
+          textTransform: label !== undefined ? 'uppercase' : 'none',
+          letterSpacing: label !== undefined ? '0.04em' : 'normal',
         }}
       >
-        {index + 1}
+        {captionText}
       </div>
 
-      {/* Tooltip — rendered below the port to avoid clipping */}
+      {/* Tooltip — rendered below the port to avoid clipping.
+        When the label was truncated, show the full label here. */}
       {hovered && (
         <div
           style={{
@@ -136,9 +156,12 @@ const RJ45Port: React.FC<{
             boxShadow: active ? `0 0 12px ${activeColor}22` : 'none',
           }}
         >
-          {active
-            ? `Port ${index + 1} → ${connectedTo}${speed ? ` (${speed})` : ''}`
-            : `Port ${index + 1} · Empty`}
+          {(() => {
+            const portName = label !== undefined ? label : `Port ${index + 1}`
+            return active
+              ? `${portName} → ${connectedTo}${speed ? ` (${speed})` : ''}`
+              : `${portName} · Empty`
+          })()}
         </div>
       )}
     </div>
@@ -252,6 +275,7 @@ export const PortStrip: React.FC<PortStripProps> = ({
   assignments,
   cardWidth,
   onPortHover,
+  portEnumeration,
 }) => {
   const ethCount = interfaces.ethernet?.count ?? 0
   const sfpCount = interfaces.sfp?.count ?? 0
@@ -262,6 +286,26 @@ export const PortStrip: React.FC<PortStripProps> = ({
   const wifiAssignments = assignments.filter((a) => a.interfaceType === 'wifi')
 
   if (ethCount === 0 && sfpCount === 0 && !hasWifi) return null
+
+  // Build a `${type}:${index} → label` lookup so each socket can pick
+  // up its declared label without iterating the enumeration array
+  // multiple times. Absent for anonymous ports and for callers that
+  // didn't supply an enumeration (backwards compat).
+  const labelLookup = new Map<string, string>()
+  if (portEnumeration) {
+    for (const p of portEnumeration) {
+      if (p.label !== undefined) labelLookup.set(`${p.interfaceType}:${p.index}`, p.label)
+    }
+  }
+
+  // When any port on this device carries a user label, declared order
+  // is load-bearing — `ports[0]` (e.g. WAN) MUST be the leftmost
+  // socket regardless of whether it's currently active. The existing
+  // active-first sort is preserved when there are no labels so anonymous
+  // strips with many idle ports stay readable.
+  // (Only ethernet renders with an active-first sort; SFP always
+  // renders in index order, so it doesn't need a similar flag.)
+  const ethHasLabels = Array.from(labelLookup.keys()).some((k) => k.startsWith('ethernet:'))
 
   return (
     <div
@@ -282,15 +326,18 @@ export const PortStrip: React.FC<PortStripProps> = ({
           const maxRows = 2
           const maxVisible = maxPerRow * maxRows
 
-          // Sort: active ports first, then inactive
+          // When labels exist, declared order is load-bearing — render
+          // in index order so ports[0] (e.g. WAN) stays leftmost.
+          // Otherwise, the existing active-first sort improves the
+          // density of idle anonymous strips.
           const allPorts = Array.from({ length: ethCount }, (_, i) => {
             const assignment = ethAssignments.find((a) => a.portIndex === i)
             return { index: i, assignment }
           })
 
-          const activePorts = allPorts.filter((p) => p.assignment)
-          const inactivePorts = allPorts.filter((p) => !p.assignment)
-          const sorted = [...activePorts, ...inactivePorts]
+          const sorted = ethHasLabels
+            ? allPorts
+            : [...allPorts.filter((p) => p.assignment), ...allPorts.filter((p) => !p.assignment)]
           const visible = sorted.slice(0, maxVisible)
           const hiddenCount = sorted.length - visible.length
 
@@ -315,6 +362,7 @@ export const PortStrip: React.FC<PortStripProps> = ({
                         active={!!p.assignment}
                         connectedTo={p.assignment?.connectedTo}
                         speed={p.assignment?.speed}
+                        label={labelLookup.get(`ethernet:${p.index}`)}
                         onHover={onPortHover}
                       />
                     ))}
@@ -375,6 +423,7 @@ export const PortStrip: React.FC<PortStripProps> = ({
                   active={!!assignment}
                   connectedTo={assignment?.connectedTo}
                   speed={assignment?.speed}
+                  label={labelLookup.get(`sfp:${i}`)}
                   onHover={onPortHover}
                 />
               )

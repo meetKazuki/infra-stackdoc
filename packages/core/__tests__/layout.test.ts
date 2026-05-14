@@ -594,3 +594,63 @@ describe('layout › nested groups', () => {
     expect(graph.groups.every((g) => (g.depth ?? 0) === 0)).toBe(true)
   })
 })
+
+// ─── Port enumeration on graph (Phase 2b: labelled ports) ─────────
+
+describe('layout › port enumerations', () => {
+  it('produces a non-null entry for every device, even those without interfaces', () => {
+    const doc = buildDoc({
+      devices: [buildDevice({ id: 'a' }), buildDevice({ id: 'b' })],
+    })
+
+    const graph = layout(doc)
+
+    expect(graph.portEnumerations.get('a')).toEqual([])
+    expect(graph.portEnumerations.get('b')).toEqual([])
+  })
+
+  it('includes child devices in the enumeration map', () => {
+    const doc = buildDoc({
+      devices: [
+        {
+          id: 'host',
+          name: 'Host',
+          type: 'hypervisor',
+          children: [{ id: 'vm', name: 'VM', type: 'vm' }],
+        },
+      ],
+    })
+
+    const graph = layout(doc)
+
+    expect(graph.portEnumerations.has('host')).toBe(true)
+    expect(graph.portEnumerations.has('vm')).toBe(true)
+  })
+
+  it('carries labels through enumeration on a device with labelled ports', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'router',
+          interfaces: {
+            ethernet: {
+              count: 5,
+              ports: [
+                { label: 'WAN' },
+                { label: 'LAN1' },
+                { label: 'LAN2' },
+                { label: 'LAN3' },
+                { label: 'LAN4' },
+              ],
+            },
+          },
+        }),
+      ],
+    })
+
+    const graph = layout(doc)
+    const ports = graph.portEnumerations.get('router')!
+
+    expect(ports.map((p) => p.label)).toEqual(['WAN', 'LAN1', 'LAN2', 'LAN3', 'LAN4'])
+  })
+})

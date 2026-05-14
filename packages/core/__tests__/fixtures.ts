@@ -207,6 +207,40 @@ export function buildDocWithChildren(_expanded: boolean = false): HomelabDocumen
 }
 
 /**
+ * A device with labelled ethernet + SFP ports (Phase 2b: labelled ports).
+ *
+ * Used by validator, ports, and layout tests to exercise label-carrying
+ * port enumeration and assignment.
+ */
+export function buildDeviceWithLabelledPorts(): Device {
+  return buildDevice({
+    id: 'router',
+    name: 'Edge Router',
+    type: 'router',
+    interfaces: {
+      ethernet: {
+        count: 5,
+        speed: '1G',
+        ports: [
+          { label: 'WAN' },
+          { label: 'LAN1' },
+          { label: 'LAN2' },
+          { label: 'LAN3' },
+          { label: 'LAN4' },
+        ],
+      },
+      sfp: {
+        count: 2,
+        ports: [
+          { label: 'SFP+ 1', speed: '10G' },
+          { label: 'SFP+ 2', speed: '10G' },
+        ],
+      },
+    },
+  })
+}
+
+/**
  * A document with nested groups (subgroup feature, Phase 2a).
  *
  * Structure:

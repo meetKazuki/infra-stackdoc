@@ -32,7 +32,6 @@ export interface Group {
   name: string
   style?: 'dashed' | 'solid' | 'none'
   color?: string
-  /** Optional id of a parent group. Enables nested (subgroup) outlines. */
   parent?: string
 }
 
@@ -51,7 +50,6 @@ export interface Device {
   interfaces?: DeviceInterfaces
 }
 
-/** Well-known device types that receive dedicated icons. */
 export type DeviceType =
   | 'router'
   | 'switch'
@@ -96,6 +94,17 @@ export interface DeviceInterfaces {
 export interface InterfaceGroup {
   count: number
   speed?: string
+  ports?: Port[]
+}
+
+/**
+ * A user-declared, identifiable port on a device interface group.
+ * The position of a Port within its `ports[]` array determines which
+ * physical socket it labels (index 0 = leftmost).
+ */
+export interface Port {
+  label: string
+  speed?: string
 }
 
 export interface WifiInterface {
@@ -122,8 +131,10 @@ export interface Connection {
 
 export type ConnectionType = 'ethernet' | 'wifi' | 'vpn' | 'usb' | 'thunderbolt' | 'fiber'
 
-// ─── Layout Output Types ──────────────────────────────────────────
-// Produced by the layout engine, consumed by the renderer.
+/* ─── Layout Output Types ──────────────────────────────────────────
+ *
+ * Produced by the layout engine, consumed by the renderer.
+ */
 
 export interface PositionedGraph {
   nodes: PositionedNode[]
@@ -132,6 +143,13 @@ export interface PositionedGraph {
   bounds: Bounds
   meta: MetaConfig
   portAssignments: Map<string, import('./ports').PortAssignment[]>
+  /**
+   * Stable per-device port enumeration. Produced once by the layout
+   * engine so the renderer doesn't have to re-derive port identity
+   * from raw `interfaces`. Every device in the graph has an entry
+   * (possibly empty for devices with no interfaces).
+   */
+  portEnumerations: Map<string, import('./ports').EnumeratedPort[]>
 }
 
 export interface PositionedNode {
@@ -176,7 +194,7 @@ export interface Bounds {
   height: number
 }
 
-// ─── Validation ───────────────────────────────────────────────────
+/* ─── Validation ─────────────────────────────────────────────────── */
 
 export interface ValidationError {
   path: string
@@ -184,7 +202,7 @@ export interface ValidationError {
   severity: 'error' | 'warning'
 }
 
-// ─── Layout Configuration ─────────────────────────────────────────
+/* ─── Layout Configuration ───────────────────────────────────────── */
 
 export interface LayoutOptions {
   nodeWidth?: number

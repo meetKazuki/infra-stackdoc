@@ -434,3 +434,196 @@ describe('validate › group parent', () => {
     expect(errors(validate(doc2)).filter((e) => e.path.startsWith('groups'))).toHaveLength(0)
   })
 })
+
+// ─── Port label validation (Phase 2b: labelled ports) ─────────────
+
+describe('validate › port labels', () => {
+  it('accepts a device with no ports[] array (backwards compat)', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'sw',
+          interfaces: { ethernet: { count: 4 } },
+        }),
+      ],
+    })
+
+    const portErrors = errors(validate(doc)).filter((e) => e.path.includes('.ports'))
+    expect(portErrors).toHaveLength(0)
+  })
+
+  it('accepts a device where ports.length === count', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'sw',
+          interfaces: {
+            ethernet: {
+              count: 2,
+              ports: [{ label: 'WAN' }, { label: 'LAN1' }],
+            },
+          },
+        }),
+      ],
+    })
+
+    const portErrors = errors(validate(doc)).filter((e) => e.path.includes('.ports'))
+    expect(portErrors).toHaveLength(0)
+  })
+
+  it('accepts partial labelling (ports.length < count)', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'sw',
+          interfaces: {
+            ethernet: {
+              count: 5,
+              ports: [{ label: 'WAN' }], // only first port labelled
+            },
+          },
+        }),
+      ],
+    })
+
+    const portErrors = errors(validate(doc)).filter((e) => e.path.includes('.ports'))
+    expect(portErrors).toHaveLength(0)
+  })
+
+  it('returns an error for an empty port label at the correct path', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'sw',
+          interfaces: {
+            ethernet: {
+              count: 2,
+              ports: [{ label: 'WAN' }, { label: '' }],
+            },
+          },
+        }),
+      ],
+    })
+
+    const emptyErrors = errors(validate(doc)).filter((e) => e.message.includes('non-empty'))
+    expect(emptyErrors).toHaveLength(1)
+    expect(emptyErrors[0].path).toBe('devices[0].interfaces.ethernet.ports[1].label')
+  })
+
+  it('returns an error for duplicate labels within the same interface group', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'sw',
+          interfaces: {
+            ethernet: {
+              count: 2,
+              ports: [{ label: 'LAN' }, { label: 'LAN' }],
+            },
+          },
+        }),
+      ],
+    })
+
+    const dupErrors = errors(validate(doc)).filter((e) =>
+      e.message.includes('Duplicate port label'),
+    )
+    expect(dupErrors).toHaveLength(1)
+    expect(dupErrors[0].path).toBe('devices[0].interfaces.ethernet.ports[1].label')
+  })
+
+  it('allows the same label across different interface groups', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'sw',
+          interfaces: {
+            ethernet: { count: 1, ports: [{ label: 'WAN' }] },
+            sfp: { count: 1, ports: [{ label: 'WAN' }] },
+          },
+        }),
+      ],
+    })
+
+    const portErrors = errors(validate(doc)).filter((e) => e.path.includes('.ports'))
+    expect(portErrors).toHaveLength(0)
+  })
+
+  it('returns an error when ports.length > count', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'sw',
+          interfaces: {
+            ethernet: {
+              count: 1,
+              ports: [{ label: 'WAN' }, { label: 'LAN1' }],
+            },
+          },
+        }),
+      ],
+    })
+
+    const overErrors = errors(validate(doc)).filter((e) =>
+      e.message.includes('declares 2 labels but count is 1'),
+    )
+    expect(overErrors).toHaveLength(1)
+    expect(overErrors[0].path).toBe('devices[0].interfaces.ethernet.ports')
+  })
+
+  it('accepts count: 0 with empty ports array', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'sw',
+          interfaces: { ethernet: { count: 0, ports: [] } },
+        }),
+      ],
+    })
+
+    const portErrors = errors(validate(doc)).filter((e) => e.path.includes('.ports'))
+    expect(portErrors).toHaveLength(0)
+  })
+
+  it('returns an error for count: 0 with non-empty ports', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'sw',
+          interfaces: { ethernet: { count: 0, ports: [{ label: 'WAN' }] } },
+        }),
+      ],
+    })
+
+    const overErrors = errors(validate(doc)).filter((e) =>
+      e.message.includes('declares 1 labels but count is 0'),
+    )
+    expect(overErrors).toHaveLength(1)
+  })
+
+  it('validates ports on nested child devices too', () => {
+    const doc = buildDoc({
+      devices: [
+        {
+          id: 'host',
+          name: 'Host',
+          type: 'hypervisor',
+          children: [
+            {
+              id: 'vm',
+              name: 'VM',
+              type: 'vm',
+              interfaces: {
+                ethernet: { count: 1, ports: [{ label: '' }] },
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    const emptyErrors = errors(validate(doc)).filter((e) => e.message.includes('non-empty'))
+    expect(emptyErrors).toHaveLength(1)
+    expect(emptyErrors[0].path).toBe('devices[0].children[0].interfaces.ethernet.ports[0].label')
+  })
+})
