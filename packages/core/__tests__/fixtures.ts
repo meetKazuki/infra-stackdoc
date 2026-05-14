@@ -205,3 +205,34 @@ export function buildDocWithChildren(_expanded: boolean = false): HomelabDocumen
     connections: [{ from: 'hypervisor', to: 'switch' }],
   }
 }
+
+/**
+ * A document with nested groups (subgroup feature, Phase 2a).
+ *
+ * Structure:
+ *   outer (depth 0)
+ *     └── middle (depth 1)
+ *           └── inner (depth 2)
+ *
+ * Each level has its own member device, all in a chain so they land
+ * on distinct layers. This exercises the parent-aware enclosure pass.
+ */
+export function buildDocWithNestedGroups(): HomelabDocument {
+  return {
+    meta: { title: 'Nested Groups Lab' },
+    groups: [
+      { id: 'outer', name: 'Outer', color: '#ffab00' },
+      { id: 'middle', name: 'Middle', parent: 'outer', color: '#00e5ff' },
+      { id: 'inner', name: 'Inner', parent: 'middle', color: '#00e676' },
+    ],
+    devices: [
+      buildDevice({ id: 'top', name: 'Top', group: 'outer' }),
+      buildDevice({ id: 'mid', name: 'Mid', group: 'middle' }),
+      buildDevice({ id: 'leaf', name: 'Leaf', group: 'inner' }),
+    ],
+    connections: [
+      buildConnection({ from: 'top', to: 'mid' }),
+      buildConnection({ from: 'mid', to: 'leaf' }),
+    ],
+  }
+}

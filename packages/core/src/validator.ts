@@ -1,3 +1,4 @@
+import { findGroupCycle } from './groups'
 import type { HomelabDocument, Device, Connection, ValidationError } from './types'
 
 /**
@@ -10,6 +11,7 @@ export function validate(doc: HomelabDocument): ValidationError[] {
   validateMeta(doc, errors)
   validateDevices(doc, errors)
   validateConnections(doc, errors)
+  validateGroups(doc, errors)
   validateReferences(doc, errors)
 
   return errors
@@ -107,6 +109,46 @@ function validateConnections(doc: HomelabDocument, errors: ValidationError[]): v
       errors.push({ path: `${path}.to`, message: "Connection is missing 'to'.", severity: 'error' })
     }
   })
+}
+
+/** Group-tree integrity: unknown parents, self-references, cycles. */
+function validateGroups(doc: HomelabDocument, errors: ValidationError[]): void {
+  if (!Array.isArray(doc.groups) || doc.groups.length === 0) return
+
+  const groupIds = new Set(doc.groups.map((g) => g.id))
+
+  doc.groups.forEach((group, i) => {
+    if (group.parent === undefined) return
+
+    if (group.parent === group.id) {
+      errors.push({
+        path: `groups[${i}].parent`,
+        message: `Group '${group.id}' cannot be its own parent.`,
+        severity: 'error',
+      })
+      return
+    }
+
+    if (!groupIds.has(group.parent)) {
+      errors.push({
+        path: `groups[${i}].parent`,
+        message: `Parent group '${group.parent}' is not defined.`,
+        severity: 'error',
+      })
+    }
+  })
+
+  const cycleId = findGroupCycle(doc.groups)
+  if (cycleId !== null) {
+    const idx = doc.groups.findIndex((g) => g.id === cycleId)
+    if (idx >= 0) {
+      errors.push({
+        path: `groups[${idx}].parent`,
+        message: `Group '${cycleId}' is part of a parent cycle.`,
+        severity: 'error',
+      })
+    }
+  }
 }
 
 /** Cross-reference check: do connection endpoints point to real device ids? */

@@ -269,8 +269,8 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
           height={graph.bounds.height}
           style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
         >
-          {graph.groups.map((g) => (
-            <GroupOutline key={g.group.id} group={g} />
+          {graph.groups.map((g, i) => (
+            <GroupOutline key={`${g.group.id}-${i}`} group={g} />
           ))}
           {graph.edges.map((edge, i) => {
             const isHighlighted = highlightedEdge

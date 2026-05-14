@@ -334,3 +334,103 @@ describe('validate › references', () => {
     expect(refWarnings).toHaveLength(0)
   })
 })
+
+// ─── Group parent validation (Phase 2a: subgroups) ────────────────
+
+describe('validate › group parent', () => {
+  it('accepts a valid parent reference', () => {
+    const doc = buildDoc({
+      groups: [
+        { id: 'outer', name: 'Outer' },
+        { id: 'inner', name: 'Inner', parent: 'outer' },
+      ],
+    })
+
+    const result = validate(doc)
+
+    const groupErrors = errors(result).filter((e) => e.path.startsWith('groups'))
+    expect(groupErrors).toHaveLength(0)
+  })
+
+  it('returns an error when parent references an unknown group', () => {
+    const doc = buildDoc({
+      groups: [{ id: 'inner', name: 'Inner', parent: 'ghost' }],
+    })
+
+    const result = validate(doc)
+
+    const parentErrors = errors(result).filter((e) => e.path === 'groups[0].parent')
+    expect(parentErrors).toHaveLength(1)
+    expect(parentErrors[0].message).toContain('ghost')
+  })
+
+  it('returns an error on self-reference', () => {
+    const doc = buildDoc({
+      groups: [{ id: 'loop', name: 'Loop', parent: 'loop' }],
+    })
+
+    const result = validate(doc)
+
+    const selfErrors = errors(result).filter((e) => e.path === 'groups[0].parent')
+    expect(selfErrors).toHaveLength(1)
+    expect(selfErrors[0].message).toContain('own parent')
+  })
+
+  it('returns an error on a two-group cycle (a → b → a)', () => {
+    const doc = buildDoc({
+      groups: [
+        { id: 'a', name: 'A', parent: 'b' },
+        { id: 'b', name: 'B', parent: 'a' },
+      ],
+    })
+
+    const result = validate(doc)
+
+    const cycleErrors = errors(result).filter(
+      (e) => e.path.startsWith('groups') && e.message.includes('cycle'),
+    )
+    expect(cycleErrors).toHaveLength(1)
+  })
+
+  it('returns an error on a three-group cycle (a → b → c → a)', () => {
+    const doc = buildDoc({
+      groups: [
+        { id: 'a', name: 'A', parent: 'b' },
+        { id: 'b', name: 'B', parent: 'c' },
+        { id: 'c', name: 'C', parent: 'a' },
+      ],
+    })
+
+    const result = validate(doc)
+
+    const cycleErrors = errors(result).filter(
+      (e) => e.path.startsWith('groups') && e.message.includes('cycle'),
+    )
+    expect(cycleErrors).toHaveLength(1)
+  })
+
+  it('accepts nesting deeper than 3 levels (no depth cap per § 8.1)', () => {
+    const doc = buildDoc({
+      groups: [
+        { id: 'l0', name: 'L0' },
+        { id: 'l1', name: 'L1', parent: 'l0' },
+        { id: 'l2', name: 'L2', parent: 'l1' },
+        { id: 'l3', name: 'L3', parent: 'l2' },
+        { id: 'l4', name: 'L4', parent: 'l3' },
+      ],
+    })
+
+    const result = validate(doc)
+
+    const groupErrors = errors(result).filter((e) => e.path.startsWith('groups'))
+    expect(groupErrors).toHaveLength(0)
+  })
+
+  it('does not error when groups is empty or absent', () => {
+    const doc1 = buildDoc()
+    const doc2 = buildDoc({ groups: [] })
+
+    expect(errors(validate(doc1)).filter((e) => e.path.startsWith('groups'))).toHaveLength(0)
+    expect(errors(validate(doc2)).filter((e) => e.path.startsWith('groups'))).toHaveLength(0)
+  })
+})
