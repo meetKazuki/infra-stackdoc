@@ -1,4 +1,4 @@
-import { assignPorts, getPortX } from './ports'
+import { assignPorts, getPortX, getInterfaceGroup } from './ports'
 import { buildGroupDepths, getDescendantGroupIds } from './groups'
 import {
   DEFAULT_LAYOUT_OPTIONS,
@@ -12,9 +12,17 @@ import {
   type LayoutOptions,
   type Point,
 } from './types'
+import { enumeratePorts, type EnumeratedPort } from './ports'
 import type { PortAssignment } from './ports'
 
-export function layout(doc: HomelabDocument, userOptions?: LayoutOptions): PositionedGraph {
+interface Rect {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+function layout(doc: HomelabDocument, userOptions?: LayoutOptions): PositionedGraph {
   const opts = { ...DEFAULT_LAYOUT_OPTIONS, ...userOptions }
 
   // 1. Top-level devices only
@@ -40,6 +48,13 @@ export function layout(doc: HomelabDocument, userOptions?: LayoutOptions): Posit
   // 7. Assign ports using original devices (for interface info) and rerouted connections
   const portAssignments = assignPorts(doc.devices, rerouted)
 
+  // 7b. Enumerate ports for every device (independent of connections).
+  // The renderer consumes this so it doesn't have to re-derive port
+  // identity from raw `interfaces`. Every device gets an entry, even
+  // when interfaces are absent (empty array), so the renderer can
+  // safely default-lookup without null checks.
+  const portEnumerations = buildPortEnumerations(doc.devices)
+
   // 8. Group outlines
   const groups = positionGroups(doc.groups ?? [], topLevel, nodeMap, opts)
 
@@ -59,7 +74,25 @@ export function layout(doc: HomelabDocument, userOptions?: LayoutOptions): Posit
     bounds,
     meta: doc.meta,
     portAssignments,
+    portEnumerations,
   }
+}
+
+/**
+ * Walks the full device tree (including children) and builds a map
+ * `deviceId → EnumeratedPort[]`. Children are included because port
+ * assignments target them too (see `assignPorts` over `doc.devices`).
+ */
+function buildPortEnumerations(devices: Device[]): Map<string, EnumeratedPort[]> {
+  const map = new Map<string, EnumeratedPort[]>()
+  const walk = (list: Device[]) => {
+    for (const d of list) {
+      map.set(d.id, enumeratePorts(d))
+      if (d.children) walk(d.children)
+    }
+  }
+  walk(devices)
+  return map
 }
 
 // ─── Hierarchy ────────────────────────────────────────────────────
@@ -281,9 +314,8 @@ function routeEdges(
 
     // Compute exit X: port-level or fan-spread fallback
     if (fromPort && fromDevice?.interfaces) {
-      const iface =
-        fromDevice.interfaces[fromPort.interfaceType as keyof typeof fromDevice.interfaces]
-      const totalPorts = iface && 'count' in iface ? iface.count : 1
+      const iface = getInterfaceGroup(fromDevice, fromPort.interfaceType)
+      const totalPorts = iface?.count ?? 1
       exitX = fromNode.x + getPortX(fromPort.portIndex, totalPorts, fromNode.width)
     } else {
       // Fan-spread fallback
@@ -297,8 +329,8 @@ function routeEdges(
 
     // Compute entry X: port-level or fan-spread fallback
     if (toPort && toDevice?.interfaces) {
-      const iface = toDevice.interfaces[toPort.interfaceType as keyof typeof toDevice.interfaces]
-      const totalPorts = iface && 'count' in iface ? iface.count : 1
+      const iface = getInterfaceGroup(toDevice, toPort.interfaceType)
+      const totalPorts = iface?.count ?? 1
       entryX = toNode.x + getPortX(toPort.portIndex, totalPorts, toNode.width)
     } else {
       const targetSiblings = byTarget.get(conn.to) ?? [conn]
@@ -521,13 +553,6 @@ function positionGroups(
   return result
 }
 
-interface Rect {
-  minX: number
-  minY: number
-  maxX: number
-  maxY: number
-}
-
 /** Bounding box of a set of positioned nodes; null if empty. */
 function boundingBox(nodes: PositionedNode[]): Rect | null {
   if (nodes.length === 0) return null
@@ -647,3 +672,5 @@ function computeBounds(
   const pad = opts.groupPadding * 2
   return { width: maxX + pad, height: maxY + pad }
 }
+
+export { layout }

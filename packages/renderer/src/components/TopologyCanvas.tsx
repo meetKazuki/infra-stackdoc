@@ -297,6 +297,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               originalDevice={original ?? node.device}
               onChildClick={handleChildClick}
               portAssignments={graph.portAssignments.get(node.device.id) ?? []}
+              portEnumeration={graph.portEnumerations.get(node.device.id) ?? []}
               onPortHover={handlePortHover}
             />
           )

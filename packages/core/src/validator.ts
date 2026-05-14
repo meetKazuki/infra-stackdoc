@@ -10,6 +10,7 @@ export function validate(doc: HomelabDocument): ValidationError[] {
 
   validateMeta(doc, errors)
   validateDevices(doc, errors)
+  validatePorts(doc, errors)
   validateConnections(doc, errors)
   validateGroups(doc, errors)
   validateReferences(doc, errors)
@@ -83,6 +84,80 @@ function validateDevices(doc: HomelabDocument, errors: ValidationError[]): void 
   }
 
   walkDevices(doc.devices, 'devices')
+}
+
+/**
+ * Validates per-port labels on every device's interface groups.
+ *
+ * Rules (see Phase 2b handoff):
+ *  - Each declared port must have a non-empty `label`.
+ *  - Labels must be unique within an interface group. The SAME label
+ *    in DIFFERENT groups (e.g. ethernet.WAN and sfp.WAN) is allowed —
+ *    those are physically distinct jacks.
+ *  - `ports.length` must not exceed the group's `count`.
+ */
+function validatePorts(doc: HomelabDocument, errors: ValidationError[]): void {
+  if (!Array.isArray(doc.devices)) return
+
+  const walk = (devices: Device[], parentPath: string) => {
+    devices.forEach((device, i) => {
+      const path = `${parentPath}[${i}]`
+      const ifaces = device.interfaces
+      if (ifaces) {
+        for (const type of ['ethernet', 'sfp', 'usb', 'thunderbolt'] as const) {
+          const group = ifaces[type]
+          if (!group) continue
+          validatePortGroup(group, `${path}.interfaces.${type}`, errors)
+        }
+      }
+      if (device.children && Array.isArray(device.children)) {
+        walk(device.children, `${path}.children`)
+      }
+    })
+  }
+
+  walk(doc.devices, 'devices')
+}
+
+function validatePortGroup(
+  group: { count: number; ports?: { label: string }[] },
+  path: string,
+  errors: ValidationError[],
+): void {
+  const ports = group.ports
+  if (!ports || !Array.isArray(ports) || ports.length === 0) return
+
+  if (ports.length > group.count) {
+    errors.push({
+      path: `${path}.ports`,
+      message: `ports[] declares ${ports.length} labels but count is ${group.count}; reduce ports or raise count.`,
+      severity: 'error',
+    })
+    // Continue checking label content so the user sees all issues at once.
+  }
+
+  const seen = new Map<string, number>()
+  ports.forEach((port, j) => {
+    const label = port?.label
+    if (typeof label !== 'string' || label === '') {
+      errors.push({
+        path: `${path}.ports[${j}].label`,
+        message: 'Port label is required and must be a non-empty string.',
+        severity: 'error',
+      })
+      return
+    }
+    const prior = seen.get(label)
+    if (prior !== undefined) {
+      errors.push({
+        path: `${path}.ports[${j}].label`,
+        message: `Duplicate port label '${label}' within this interface group (also at index ${prior}).`,
+        severity: 'error',
+      })
+    } else {
+      seen.set(label, j)
+    }
+  })
 }
 
 function validateConnections(doc: HomelabDocument, errors: ValidationError[]): void {

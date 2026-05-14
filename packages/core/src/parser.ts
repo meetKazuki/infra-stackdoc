@@ -1,6 +1,14 @@
 import yaml from 'js-yaml'
 import { validate } from './validator'
-import type { HomelabDocument, ValidationError, DeviceSpecs } from './types'
+import type {
+  HomelabDocument,
+  ValidationError,
+  DeviceSpecs,
+  DeviceInterfaces,
+  InterfaceGroup,
+  Port,
+  WifiInterface,
+} from './types'
 
 export type ParseResult =
   | { ok: true; document: HomelabDocument; warnings: ValidationError[] }
@@ -47,9 +55,10 @@ export function parse(yamlString: string): ParseResult {
   return { ok: true, document: doc, warnings }
 }
 
-// ─── Normalization helpers ────────────────────────────────────────
-// These turn loosely-typed parsed YAML into our stricter interfaces
-// without throwing — we leave error reporting to the validator.
+/* ─── Normalization helpers ────────────────────────────────────────
+ * These turn loosely-typed parsed YAML into our stricter interfaces
+ * without throwing — we leave error reporting to the validator.
+ */
 
 function normalizeDocument(raw: Record<string, unknown>): HomelabDocument {
   return {
@@ -110,9 +119,71 @@ function normalizeDevice(raw: unknown): HomelabDocument['devices'][number] {
           }
         })
       : undefined,
-    interfaces:
-      r.interfaces && typeof r.interfaces === 'object'
-        ? (r.interfaces as Record<string, unknown>)
-        : undefined,
+    interfaces: normalizeInterfaces(r.interfaces),
   }
+}
+
+/* ─── Interface normalization ──────────────────────────────────────
+ *
+ * Tolerant: drops malformed sub-fields silently and leaves error
+ * reporting to the validator. Coerces YAML scalars where applicable.
+ */
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function normalizeInterfaces(raw: unknown): DeviceInterfaces | undefined {
+  if (!isPlainObject(raw)) return undefined
+
+  const result: DeviceInterfaces = {}
+  const ethernet = normalizeInterfaceGroup(raw.ethernet)
+  if (ethernet) result.ethernet = ethernet
+  const sfp = normalizeInterfaceGroup(raw.sfp)
+  if (sfp) result.sfp = sfp
+  const usb = normalizeInterfaceGroup(raw.usb)
+  if (usb) result.usb = usb
+  const thunderbolt = normalizeInterfaceGroup(raw.thunderbolt)
+  if (thunderbolt) result.thunderbolt = thunderbolt
+  const wifi = normalizeWifiInterface(raw.wifi)
+  if (wifi) result.wifi = wifi
+
+  return result
+}
+
+function normalizeInterfaceGroup(raw: unknown): InterfaceGroup | undefined {
+  if (!isPlainObject(raw)) return undefined
+
+  const group: InterfaceGroup = {
+    // Number(undefined) is NaN; the validator does its own structural
+    // checks downstream. Default to 0 so well-formed YAML without an
+    // explicit count behaves as "no ports declared."
+    count: raw.count != null ? Number(raw.count) : 0,
+  }
+  if (raw.speed != null) group.speed = String(raw.speed)
+  const ports = normalizePorts(raw.ports)
+  if (ports) group.ports = ports
+  return group
+}
+
+function normalizePorts(raw: unknown): Port[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  return raw.map((entry): Port => {
+    const obj = isPlainObject(entry) ? entry : {}
+    const port: Port = {
+      // Empty string when missing/non-string. The validator reports
+      // empty-label errors at the correct path.
+      label: typeof obj.label === 'string' ? obj.label : String(obj.label ?? ''),
+    }
+    if (obj.speed != null) port.speed = String(obj.speed)
+    return port
+  })
+}
+
+function normalizeWifiInterface(raw: unknown): WifiInterface | undefined {
+  if (!isPlainObject(raw)) return undefined
+  const wifi: WifiInterface = {}
+  if (Array.isArray(raw.bands)) wifi.bands = raw.bands.map(String)
+  if (raw.standard != null) wifi.standard = String(raw.standard)
+  return wifi
 }

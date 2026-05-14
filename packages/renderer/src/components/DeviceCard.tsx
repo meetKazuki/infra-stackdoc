@@ -3,13 +3,14 @@ import { colors, fonts, deviceAccent } from '../theme'
 import { getDeviceIconPath, getSpecIconPath } from '../icons'
 import { PortStrip } from './PortStrip'
 import { ServiceIcon } from './ServiceIcon'
-import type { PositionedNode, Device, PortAssignment } from '@homelab-stackdoc/core'
+import type { PositionedNode, Device, PortAssignment, EnumeratedPort } from '@homelab-stackdoc/core'
 
 interface DeviceCardProps {
   node: PositionedNode
   originalDevice: Device
   onChildClick: (child: Device, parent: Device) => void
   portAssignments: PortAssignment[]
+  portEnumeration?: EnumeratedPort[]
   onPortHover?: (deviceId: string, connectedTo: string | null) => void
 }
 
@@ -113,6 +114,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   originalDevice,
   onChildClick,
   portAssignments,
+  portEnumeration,
   onPortHover,
 }) => {
   const [hovered, setHovered] = useState(false)
@@ -217,6 +219,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
             interfaces={originalDevice.interfaces}
             assignments={portAssignments}
             cardWidth={width}
+            portEnumeration={portEnumeration}
             onPortHover={(connectedTo) => onPortHover?.(device.id, connectedTo)}
           />
         )}
