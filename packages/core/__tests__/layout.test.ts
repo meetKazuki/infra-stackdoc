@@ -654,3 +654,32 @@ describe('layout › port enumerations', () => {
     expect(ports.map((p) => p.label)).toEqual(['WAN', 'LAN1', 'LAN2', 'LAN3', 'LAN4'])
   })
 })
+
+// ─── Bundle propagation onto edges (Phase 2c: parallel links) ─────
+
+describe('layout › edge bundle', () => {
+  it('sets PositionedEdge.bundle when the source connection has one', () => {
+    const doc = buildDoc({
+      devices: [buildDevice({ id: 'a' }), buildDevice({ id: 'b' })],
+      connections: [buildConnection({ from: 'a', to: 'b', bundle: 'trunk-1' })],
+    })
+
+    const graph = layout(doc)
+    const edge = findEdge(graph, 'a', 'b')
+
+    expect(edge).toBeDefined()
+    expect(edge!.bundle).toBe('trunk-1')
+  })
+
+  it('leaves PositionedEdge.bundle undefined for connections without bundle', () => {
+    const doc = buildDoc({
+      devices: [buildDevice({ id: 'a' }), buildDevice({ id: 'b' })],
+      connections: [buildConnection({ from: 'a', to: 'b' })],
+    })
+
+    const graph = layout(doc)
+    const edge = findEdge(graph, 'a', 'b')
+
+    expect(edge!.bundle).toBeUndefined()
+  })
+})

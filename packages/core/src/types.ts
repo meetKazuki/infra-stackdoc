@@ -127,6 +127,9 @@ export interface Connection {
   speed?: string
   direction?: 'one-way' | 'bidirectional'
   label?: string
+  fromPort?: string
+  toPort?: string
+  bundle?: string
 }
 
 export type ConnectionType = 'ethernet' | 'wifi' | 'vpn' | 'usb' | 'thunderbolt' | 'fiber'
@@ -143,12 +146,6 @@ export interface PositionedGraph {
   bounds: Bounds
   meta: MetaConfig
   portAssignments: Map<string, import('./ports').PortAssignment[]>
-  /**
-   * Stable per-device port enumeration. Produced once by the layout
-   * engine so the renderer doesn't have to re-derive port identity
-   * from raw `interfaces`. Every device in the graph has an entry
-   * (possibly empty for devices with no interfaces).
-   */
   portEnumerations: Map<string, import('./ports').EnumeratedPort[]>
 }
 
@@ -168,6 +165,7 @@ export interface PositionedEdge {
   toNodeId: string
   fromPortIndex?: number
   toPortIndex?: number
+  bundle?: string
 }
 
 export interface PositionedGroup {
@@ -176,11 +174,6 @@ export interface PositionedGroup {
   y: number
   width: number
   height: number
-  /**
-   * Nesting depth in the group-parent tree (0 = top-level).
-   * Optional so test fixtures and pre-Phase-2a code that constructs
-   * PositionedGroup directly stay valid; renderers should default to 0.
-   */
   depth?: number
 }
 

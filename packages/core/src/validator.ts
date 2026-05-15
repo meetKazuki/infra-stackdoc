@@ -1,4 +1,5 @@
 import { findGroupCycle } from './groups'
+import { resolvePortReference } from './ports'
 import type { HomelabDocument, Device, Connection, ValidationError } from './types'
 
 /**
@@ -14,6 +15,7 @@ export function validate(doc: HomelabDocument): ValidationError[] {
   validateConnections(doc, errors)
   validateGroups(doc, errors)
   validateReferences(doc, errors)
+  validateConnectionPorts(doc, errors)
 
   return errors
 }
@@ -276,4 +278,166 @@ function validateReferences(doc: HomelabDocument, errors: ValidationError[]): vo
       })
     }
   })
+}
+
+// ─── Connection-side port validation (Phase 2c) ───────────────────
+
+/**
+ * Maps a `Connection.type` to the InterfaceGroup key on `DeviceInterfaces`
+ * that must exist for the connection to land on a port. WiFi has no
+ * count-bearing group; returns null and the phantom-assignment check
+ * skips it. Unknown types also return null (treated as "no constraint").
+ */
+function connectionTypeToInterfaceKey(
+  connType: string,
+): 'ethernet' | 'sfp' | 'usb' | 'thunderbolt' | null {
+  switch (connType) {
+    case 'ethernet':
+      return 'ethernet'
+    case 'fiber':
+    case 'sfp':
+      return 'sfp'
+    case 'usb':
+      return 'usb'
+    case 'thunderbolt':
+      return 'thunderbolt'
+    default:
+      return null
+  }
+}
+
+/**
+ * Connection-side checks introduced in Phase 2c:
+ *
+ *  1. Dangling `fromPort` / `toPort` — label doesn't exist on the
+ *     referenced device.
+ *  2. Type-mismatched label — label resolves but its interface type is
+ *     incompatible with `conn.type`.
+ *  3. Ambiguous label — same label across multiple interface groups
+ *     with no `conn.type` to disambiguate.
+ *  4. Double-binding — two connections claim the same
+ *     `(device, interfaceType, portIndex)`.
+ *  5. Phantom assignment — `conn.type` is specified and incompatible
+ *     with *both* endpoints' declared interfaces. Skipped when:
+ *       - `conn.type` is absent (defaults to ethernet; can't fault a
+ *         user who didn't ask for ethernet specifically);
+ *       - the type is `wifi` (no count-bearing group);
+ *       - a device declares no `interfaces` at all (opted out of port
+ *         modeling — see Phase 2c handoff note about not breaking
+ *         fixtures with bare devices).
+ *
+ *  Checks 1–3 piggy-back on `resolvePortReference`; the validator just
+ *  attaches the right error path. Check 4 walks all resolved pins.
+ *  Check 5 looks at `conn.type` against each endpoint's interfaces.
+ */
+function validateConnectionPorts(doc: HomelabDocument, errors: ValidationError[]): void {
+  if (!Array.isArray(doc.connections)) return
+  if (!Array.isArray(doc.devices)) return
+
+  // Collect all devices (including children) into a lookup map.
+  const deviceLookup = new Map<string, Device>()
+  const collect = (devices: Device[]) => {
+    for (const d of devices) {
+      if (d.id) deviceLookup.set(d.id, d)
+      if (d.children) collect(d.children)
+    }
+  }
+  collect(doc.devices)
+
+  // Tracks claimed slots for double-binding detection.
+  const claimedSlots = new Map<string, number>() // key: `${deviceId}|${ifaceType}|${index}` → first conn index
+
+  doc.connections.forEach((conn, i) => {
+    const fromDev = deviceLookup.get(conn.from)
+    const toDev = deviceLookup.get(conn.to)
+
+    // 1–3. Label resolution + double-binding (from side)
+    if (conn.fromPort !== undefined && fromDev) {
+      const r = resolvePortReference(fromDev, conn.fromPort, conn.type)
+      if ('error' in r) {
+        errors.push({
+          path: `connections[${i}].fromPort`,
+          message: r.error,
+          severity: 'error',
+        })
+      } else {
+        recordSlotClaim(
+          conn.from,
+          r.interfaceType,
+          r.index,
+          i,
+          `connections[${i}].fromPort`,
+          claimedSlots,
+          errors,
+        )
+      }
+    }
+
+    // 1–3. Label resolution + double-binding (to side)
+    if (conn.toPort !== undefined && toDev) {
+      const r = resolvePortReference(toDev, conn.toPort, conn.type)
+      if ('error' in r) {
+        errors.push({
+          path: `connections[${i}].toPort`,
+          message: r.error,
+          severity: 'error',
+        })
+      } else {
+        recordSlotClaim(
+          conn.to,
+          r.interfaceType,
+          r.index,
+          i,
+          `connections[${i}].toPort`,
+          claimedSlots,
+          errors,
+        )
+      }
+    }
+
+    // 5. Phantom assignment — only when conn.type is explicit and the
+    //    type maps to a count-bearing group. Both endpoints must have
+    //    `interfaces` declared for the check to fire; a bare device
+    //    is opting out of port modeling.
+    if (conn.type !== undefined) {
+      const requiredKey = connectionTypeToInterfaceKey(conn.type)
+      if (requiredKey !== null) {
+        const fromHasIfaces = fromDev?.interfaces !== undefined
+        const toHasIfaces = toDev?.interfaces !== undefined
+        if (fromHasIfaces && toHasIfaces) {
+          const fromHasGroup = fromDev!.interfaces![requiredKey] !== undefined
+          const toHasGroup = toDev!.interfaces![requiredKey] !== undefined
+          if (!fromHasGroup && !toHasGroup) {
+            errors.push({
+              path: `connections[${i}].type`,
+              message: `Connection type '${conn.type}' requires a '${requiredKey}' interface group, but neither '${conn.from}' nor '${conn.to}' declares one.`,
+              severity: 'error',
+            })
+          }
+        }
+      }
+    }
+  })
+}
+
+function recordSlotClaim(
+  deviceId: string,
+  ifaceType: string,
+  portIndex: number,
+  connIndex: number,
+  path: string,
+  claimedSlots: Map<string, number>,
+  errors: ValidationError[],
+): void {
+  const key = `${deviceId}|${ifaceType}|${portIndex}`
+  const prior = claimedSlots.get(key)
+  if (prior !== undefined) {
+    errors.push({
+      path,
+      message: `Port '${ifaceType}[${portIndex}]' on '${deviceId}' is already claimed by connection ${prior}.`,
+      severity: 'error',
+    })
+  } else {
+    claimedSlots.set(key, connIndex)
+  }
 }
