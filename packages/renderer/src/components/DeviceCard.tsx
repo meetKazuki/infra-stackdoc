@@ -17,6 +17,7 @@ interface DeviceCardProps {
   onChildClick: (child: Device, parent: Device) => void
   onPortHover?: (deviceId: string, connectedTo: string | null) => void
   onSelect?: (deviceId: string) => void
+  onOpenDetail?: (device: Device, parent: Device | null) => void
 }
 
 const SpecItem: React.FC<{ specKey: string; value: string }> = ({ specKey, value }) => (
@@ -126,6 +127,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   zoomScale = 1,
   showLabel = true,
   onSelect,
+  onOpenDetail,
 }) => {
   const [hovered, setHovered] = useState(false)
   const { device, x, y, width, height } = node
@@ -137,23 +139,15 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   const tags = originalDevice.tags ?? []
   const children = originalDevice.children ?? []
 
-  // ── Phase 2d LOD gates ──────────────────────────────────────────
-  // Thresholds match the spec table. `hideDetails` covers port strips
-  // *and* spec rows since both are tiny-text content that goes
-  // unreadable at the same zoom level.
   const hideDetails = zoomScale < 0.75
   const renderAsPuck = zoomScale < 0.25
-  // Label is suppressed when (a) the global LOD says so (< 0.5 zoom +
-  // parent's 1-in-4 filter), or (b) puck mode.
   const labelHidden = renderAsPuck || !showLabel
 
   const opacity = dimmed ? 0.18 : 1
 
   // ── Puck mode (< 25% zoom) ──────────────────────────────────────
   // The card collapses to a small circular puck centred on the card's
-  // centre. Per the spec: `size="sm"` 24×24, no name, no count badge.
-  // We render this in canvas-space so the rest of the canvas transform
-  // (pan/zoom) applies uniformly.
+  // centre.
   if (renderAsPuck) {
     const PUCK = 24
     return (
@@ -161,6 +155,10 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
         onClick={(e) => {
           e.stopPropagation()
           onSelect?.(device.id)
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          onOpenDetail?.(originalDevice, null)
         }}
         style={{
           position: 'absolute',
@@ -193,11 +191,12 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={(e) => {
-        // Selection click. The canvas-level pan-drag detector
-        // upstream is responsible for swallowing this when the user
-        // actually dragged — here we just propagate the intent.
         e.stopPropagation()
         onSelect?.(device.id)
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation()
+        onOpenDetail?.(originalDevice, null)
       }}
       style={{
         position: 'absolute',

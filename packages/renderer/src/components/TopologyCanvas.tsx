@@ -44,9 +44,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   const [transform, setTransform] = useState<Transform>({ x: 0, y: 0, scale: 1 })
   const [dragging, setDragging] = useState(false)
   const dragStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 })
-  // Tracks whether the current mouse-down→up actually moved beyond a
-  // small threshold — used to suppress card-selection clicks that
-  // happened during a pan-drag (Phase 2d).
   const dragMoved = useRef(false)
 
   const [modalChild, setModalChild] = useState<Device | null>(null)
@@ -54,18 +51,10 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
   const [highlightedEdge, setHighlightedEdge] = useState<{ from: string; to: string } | null>(null)
 
-  // ── Phase 2d state ──────────────────────────────────────────────
-  // All four layers are visible by default. The state is a Set so
-  // toggle becomes a simple add/remove rather than position-keyed.
   const [enabledLayers, setEnabledLayers] = useState<Set<LayerCategory>>(() => new Set(ALL_LAYERS))
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(() => new Set())
-  // `focusedNodeId` is the *selected* node (set by clicking a card).
-  // `focusDepth` cycles 0 → 1 → 2 → 0 via the F key.
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null)
   const [focusDepth, setFocusDepth] = useState<0 | 1 | 2>(0)
-  // Tracked separately from the bounding-rect read inside event
-  // handlers so the minimap (which reads it during render) gets a
-  // stable, React-managed value.
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({
     width: 0,
     height: 0,
@@ -88,6 +77,12 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
   const handleChildClick = useCallback((child: Device, parent: Device) => {
     setModalChild(child)
+    setModalParent(parent)
+  }, [])
+
+  const handleOpenDetail = useCallback((device: Device, parent: Device | null) => {
+    if (dragMoved.current) return
+    setModalChild(device)
     setModalParent(parent)
   }, [])
 
@@ -415,8 +410,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   // ── Zoom-driven LOD derivations ─────────────────────────────────
   const zoom = transform.scale
   const hideSublabels = zoom < 0.75
-  // At <50%, only every 4th node renders its name. The choice is
-  // index-deterministic so it doesn't churn between renders.
   const showLabelFor = useMemo(() => {
     const map = new Map<string, boolean>()
     const thinning = zoom < 0.5
@@ -523,7 +516,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         </div>
       </div>
 
-      {/* Phase 2d density toolbar (anchored top-right under the header). */}
+      {/* density toolbar (anchored top-right under the header). */}
       <DensityToolbar
         enabledLayers={enabledLayers}
         onToggleLayer={handleToggleLayer}
@@ -577,8 +570,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
             )
           })}
           {(() => {
-            // Group edges by bundle. Edges without a bundle render
-            // individually as before (load-bearing backwards compat).
+            // Group edges by bundle. Edges without a bundle render individually as before (load-bearing backwards compat).
             const bundles = new Map<string, PositionedEdge[]>()
             const standalone: PositionedEdge[] = []
             for (const edge of effectiveEdges) {
@@ -596,8 +588,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               ((e.fromNodeId === highlightedEdge.from && e.toNodeId === highlightedEdge.to) ||
                 (e.fromNodeId === highlightedEdge.to && e.toNodeId === highlightedEdge.from))
 
-            // Focus dim: in focus mode, any edge NOT in the focused
-            // edge set is dimmed regardless of port hover.
+            // Focus dim: in focus mode, any edge NOT in the focused edge set is dimmed regardless of port hover.
             const isEdgeFocusDimmed = (e: PositionedEdge): boolean =>
               focusDepth > 0 && !focusedEdgeKeys.has(edgeKey(e))
 
@@ -605,8 +596,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               <>
                 {standalone.map((edge) => {
                   const hi = isEdgeHighlighted(edge)
-                  // Combine port-hover dim and focus dim — either path
-                  // dims the edge.
+                  // Combine port-hover dim and focus dim — either path dims the edge.
                   const isDimmed = (highlightedEdge !== null && !hi) || isEdgeFocusDimmed(edge)
                   return (
                     <ConnectionLine
@@ -620,10 +610,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                 {Array.from(bundles.entries()).map(([bundleName, members]) => {
                   const highlightedMember = members.find(isEdgeHighlighted)
                   const otherBundleHighlighted = highlightedEdge !== null && !highlightedMember
-                  // Bundle is focus-dimmed if no member is in the
-                  // focused edge set (handoff: "feed it `true` when
-                  // no member edge of the bundle is in the focused
-                  // edge set").
                   const bundleFocusDimmed =
                     focusDepth > 0 && !members.some((m) => focusedEdgeKeys.has(edgeKey(m)))
                   return (
@@ -661,10 +647,11 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               zoomScale={zoom}
               showLabel={showLabelFor.get(node.device.id) ?? true}
               onSelect={handleSelect}
+              onOpenDetail={handleOpenDetail}
             />
           )
         })}
-        {/* Supernodes for collapsed groups (Phase 2d). */}
+        {/* Supernodes for collapsed groups. */}
         {supernodes.map(
           ({ pg, centre, count, representativeType, isInFocus, isFocusedDirectly }) => (
             <SupernodePuck
@@ -683,7 +670,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         )}
       </div>
 
-      {/* Minimap — hidden below 800px viewport width (Phase 2d). */}
+      {/* Minimap — hidden below 800px viewport width. */}
       {containerSize.width >= MINIMAP_MIN_VIEWPORT_PX && containerSize.width > 0 && (
         <Minimap
           graph={graph}
@@ -695,7 +682,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
       )}
 
       {/* Modal */}
-      {modalChild && modalParent && (
+      {modalChild && (
         <DetailModal
           child={modalChild}
           parent={modalParent}
