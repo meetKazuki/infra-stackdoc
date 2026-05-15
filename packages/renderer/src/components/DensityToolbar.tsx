@@ -4,10 +4,10 @@ import { colors, fonts } from '../theme'
 
 interface DensityToolbarProps {
   enabledLayers: ReadonlySet<LayerCategory>
-  onToggleLayer: (layer: LayerCategory) => void
   zoomPercent: number
-  onSetZoom: (zoomPercent: number) => void
   focusActive: boolean
+  onToggleLayer: (layer: LayerCategory) => void
+  onSetZoom: (zoomPercent: number) => void
   onFocus: () => void
 }
 
@@ -17,7 +17,6 @@ const Chip: React.FC<{
   active: boolean
   onClick: () => void
   children: React.ReactNode
-  /** Optional override for the "active" accent — defaults to primary cyan. */
   activeColor?: string
   title?: string
 }> = ({ active, onClick, children, activeColor, title }) => {

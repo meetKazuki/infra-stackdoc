@@ -1,17 +1,6 @@
 import type { Group, PositionedEdge, PositionedGroup, PositionedNode } from '@homelab-stackdoc/core'
 
 /**
- * Group-collapse derivations: which devices live inside which
- * collapsed group, where each supernode renders, and how edges
- * re-route across the boundary.
- *
- * Kept renderer-local rather than added to `core`: collapse is a
- * presentation-only concept (zoom, focus, layer toggles all share
- * this story) and does not belong in the layout output. Per the
- * Phase 2d handoff, `packages/core` is not touched.
- */
-
-/**
  * Returns the set of group ids that are descendants of `rootId`
  * (children, grandchildren, …) including `rootId` itself.
  *
@@ -63,20 +52,18 @@ export function buildDeviceToCollapsedGroupMap(
 ): Map<string, string> {
   if (collapsedGroupIds.size === 0) return new Map()
 
-  // Group id → its subtree (incl. self). One pass.
   const subtrees = new Map<string, Set<string>>()
   for (const gid of collapsedGroupIds) {
     subtrees.set(gid, getGroupSubtreeIds(gid, groups))
   }
 
-  // For deterministic "outermost" resolution we need ancestor chains.
   const groupsById = new Map(groups.map((g) => [g.id, g]))
   const ancestorChain = (gid: string): string[] => {
     const chain: string[] = []
     let cursor = groupsById.get(gid)
     const seen = new Set<string>()
     while (cursor) {
-      if (seen.has(cursor.id)) break // defensive: validator should catch cycles
+      if (seen.has(cursor.id)) break
       seen.add(cursor.id)
       chain.push(cursor.id)
       cursor = cursor.parent ? groupsById.get(cursor.parent) : undefined

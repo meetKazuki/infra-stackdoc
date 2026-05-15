@@ -135,7 +135,6 @@ function validatePortGroup(
       message: `ports[] declares ${ports.length} labels but count is ${group.count}; reduce ports or raise count.`,
       severity: 'error',
     })
-    // Continue checking label content so the user sees all issues at once.
   }
 
   const seen = new Map<string, number>()

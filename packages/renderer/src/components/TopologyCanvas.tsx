@@ -1,15 +1,4 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react'
-import { CanvasControls } from './CanvasControls'
-import { colors, fonts } from '../theme'
-import { BundleTrunk } from './BundleTrunk'
-import { ConnectionLine } from './ConnectionLine'
-import { DensityToolbar } from './DensityToolbar'
-import { DetailModal } from './DetailModal'
-import { DeviceCard } from './DeviceCard'
-import { GroupOutline } from './GroupOutline'
-import { Minimap } from './Minimap'
-import { SupernodePuck } from './SupernodePuck'
-import { computeFocusedEdgeKeys, computeFocusedNodeIds } from '../lib/focus'
 import { ALL_LAYERS, isLayerVisible, type LayerCategory } from '../lib/layers'
 import {
   buildDeviceToCollapsedGroupMap,
@@ -17,7 +6,18 @@ import {
   rerouteEdgeForCollapse,
   supernodeCentre,
 } from '../lib/collapse'
+import { BundleTrunk } from './BundleTrunk'
+import { CanvasControls } from './CanvasControls'
+import { colors, fonts } from '../theme'
+import { computeFocusedEdgeKeys, computeFocusedNodeIds } from '../lib/focus'
+import { ConnectionLine } from './ConnectionLine'
+import { DensityToolbar } from './DensityToolbar'
+import { DetailModal } from './DetailModal'
+import { DeviceCard } from './DeviceCard'
+import { GroupOutline } from './GroupOutline'
+import { Minimap } from './Minimap'
 import { resolveSupernodeIcon } from '../lib/supernode-icon'
+import { SupernodePuck } from './SupernodePuck'
 import type { PositionedGraph, PositionedEdge, Device, Connection } from '@homelab-stackdoc/core'
 
 interface TopologyCanvasProps {
@@ -32,9 +32,7 @@ interface Transform {
   scale: number
 }
 
-/** Threshold (in px) for distinguishing a click from a pan-drag. */
 const CLICK_VS_DRAG_PX = 4
-/** Viewport width below which the minimap is hidden entirely. */
 const MINIMAP_MIN_VIEWPORT_PX = 800
 
 export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({

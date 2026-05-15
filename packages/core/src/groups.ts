@@ -27,14 +27,13 @@ export function buildGroupDepths(groups: Group[]): Map<string, number> {
 
     while (cursor?.parent) {
       if (visited.has(cursor.id)) {
-        // Cycle — bail out and report 0. Validator should have flagged this.
         depth = 0
         break
       }
       visited.add(cursor.id)
 
       const parent = byId.get(cursor.parent)
-      if (!parent) break // unknown parent — validator's problem; treat as top-level chain end
+      if (!parent) break
       depth++
       cursor = parent
     }
@@ -58,13 +57,13 @@ export function findGroupCycle(groups: Group[]): string | null {
 
   for (const start of groups) {
     if (!start.parent) continue
-    if (start.parent === start.id) continue // self-loop — reported separately
+    if (start.parent === start.id) continue
 
     const visited = new Set<string>([start.id])
     let cursor: Group | undefined = byId.get(start.parent)
 
     while (cursor?.parent) {
-      if (cursor.parent === cursor.id) break // self-loop on an unrelated group — not our problem here
+      if (cursor.parent === cursor.id) break
       if (visited.has(cursor.id)) {
         return cursor.id
       }

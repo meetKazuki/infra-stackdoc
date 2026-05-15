@@ -34,7 +34,7 @@ const toggleButtonStyle: React.CSSProperties = {
 
 export const EditorPage: React.FC<EditorPageProps> = ({ initialYaml, editingSlug }) => {
   const [yaml, setYaml] = useState(initialYaml || SAMPLE_YAML)
-  const [splitRatio, setSplitRatio] = useState(0.2)
+  const [splitRatio, setSplitRatio] = useState(0.22)
   const [resizing, setResizing] = useState(false)
   const [editorVisible, setEditorVisible] = useState(true)
 

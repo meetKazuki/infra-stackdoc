@@ -41,7 +41,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   const services = child.services ?? []
   const tags = child.tags ?? []
 
-  // Find connections involving this child
   const childConns = connections.filter((c) => c.from === child.id || c.to === child.id)
 
   return (

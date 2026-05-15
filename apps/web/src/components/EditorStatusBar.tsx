@@ -40,7 +40,7 @@ const STATUS_LABEL: Record<Status, string> = {
 /**
  * Footer status bar inside the YAML editor pane.
  *
- *   [LED] VALID · N NETWORKS · N DEVICES · N CONNECTIONS       YAML · UTF-8 · LF · LINE n
+ *   [LED] VALID · N NETWORKS · N DEVICES · N CONNECTIONS      YAML · UTF-8 · LF · LINE n
  *
  * LED tone follows error severity: green (valid), amber (warnings only),
  * red (any error).

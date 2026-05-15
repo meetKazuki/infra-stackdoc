@@ -8,34 +8,14 @@ import type { PositionedNode, Device, PortAssignment, EnumeratedPort } from '@ho
 interface DeviceCardProps {
   node: PositionedNode
   originalDevice: Device
-  onChildClick: (child: Device, parent: Device) => void
   portAssignments: PortAssignment[]
   portEnumeration?: EnumeratedPort[]
-  onPortHover?: (deviceId: string, connectedTo: string | null) => void
-  /**
-   * Focus-mode flags (Phase 2d). `focused` adds an outlined ring;
-   * `dimmed` drops opacity to 0.18. Mutually independent — a node can
-   * be either, both, or neither.
-   */
   dimmed?: boolean
   focused?: boolean
-  /**
-   * Current canvas zoom (0-1+). Drives the LOD thresholds:
-   *   < 0.75 → hide port strip + spec rows.
-   *   < 0.50 → hide label unless the node passes the 1-in-4 filter
-   *             (`showLabel` decides that — computed by the parent so
-   *             the filter sees the full node list).
-   *   < 0.25 → render as a 24×24 puck instead of a full card.
-   * Defaults to 1 (no LOD reduction) for back-compat callers.
-   */
   zoomScale?: number
-  /**
-   * Whether to render the device name label at the current zoom.
-   * Parent decides — at < 0.50 zoom, only ~1 in 4 cards shows a name.
-   * Defaults to `true` for back-compat callers.
-   */
   showLabel?: boolean
-  /** Called on a top-level card click (selection for focus mode). */
+  onChildClick: (child: Device, parent: Device) => void
+  onPortHover?: (deviceId: string, connectedTo: string | null) => void
   onSelect?: (deviceId: string) => void
 }
 
