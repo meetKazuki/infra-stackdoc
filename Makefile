@@ -1,15 +1,6 @@
-.PHONY: help install dev build preview clean typecheck lint \
-        docker-build docker-run docker-stop \
-        core-typecheck renderer-typecheck web-typecheck \
-        new-lockfile
-
-# ── Variables ──────────────────────────────────────────────────────
-
 APP_NAME    := homelab-stackdoc
-DOCKER_PORT := 8080
 PNPM        := pnpm
-
-# ── Default ────────────────────────────────────────────────────────
+COMPOSE 		:= docker compose
 
 help: ## Show this help
 	@echo ""
@@ -19,87 +10,58 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-# ── Development ────────────────────────────────────────────────────
+# ==========================================
+# Infra (local)
+# ==========================================
+
+infra: ## Start local services (Postgres, etc.)
+	$(COMPOSE) up -d --force-recreate
+
+infra-down: ## Stop local services
+	$(COMPOSE) down -v
+
+infra-logs: ## Tail local service logs
+	$(COMPOSE) logs -f
+
+# ==========================================
+# CI/CD & Deployment
+# ==========================================
 
 install: ## Install all dependencies
 	$(PNPM) install
 
-dev: ## Start the dev server
-	$(PNPM) --filter @homelab-stackdoc/web dev
+build-packages:
+	$(PNPM) --filter "./packages/**" run build
 
-build: ## Production build
-	$(PNPM) --filter @homelab-stackdoc/web build
+build: build-packages
+	$(PNPM) --filter "./apps/**" run build
 
-preview: ## Serve the production build locally
-	$(PNPM) --filter @homelab-stackdoc/web preview
+typecheck: build-packages
+	$(PNPM) --recursive --if-present run typecheck
 
-# ── Type checking ──────────────────────────────────────────────────
+test:
+	pnpm --recursive --if-present run test
 
-typecheck: core-typecheck renderer-typecheck web-typecheck ## Typecheck all packages
+clean:
+	find . -name "node_modules" -type d -prune -exec rm -rf '{}' +
+	find . -name "dist" -type d -prune -exec rm -rf '{}' +
 
-core-typecheck: ## Typecheck packages/core
-	$(PNPM) --filter @homelab-stackdoc/core typecheck
+# ==========================================
+# Local Development
+# ==========================================
 
-renderer-typecheck: ## Typecheck packages/renderer
-	$(PNPM) --filter @homelab-stackdoc/renderer typecheck
+dev: build-packages
+	$(PNPM) --filter "./apps/**" --parallel run dev
 
-web-typecheck: ## Typecheck apps/web
-	cd apps/web && npx tsc --noEmit
+dev-api: build-packages ## Start the api server
+	$(PNPM) --filter "@homelab-stackdoc/api" run dev
 
+dev-web: build-packages ## Start the web server
+	$(PNPM) --filter "./apps/web" run dev
 
-# ── Testing ────────────────────────────────────────────────────────
-
-test: core-test ## Run all tests
-
-core-test: ## Run core package tests
-	$(PNPM) --filter @homelab-stackdoc/core test
-
-# ── Docker ─────────────────────────────────────────────────────────
-
-docker-build: ## Build the Docker image
-	docker build -t $(APP_NAME) .
-
-docker-run: ## Run the Docker container on port $(DOCKER_PORT)
-	docker run -d --name $(APP_NAME) -p $(DOCKER_PORT):80 $(APP_NAME)
-	@echo ""
-	@echo "  Running at http://localhost:$(DOCKER_PORT)"
-	@echo ""
-
-docker-stop: ## Stop and remove the Docker container
-	docker stop $(APP_NAME) 2>/dev/null || true
-	docker rm $(APP_NAME) 2>/dev/null || true
-
-docker-restart: docker-stop docker-build docker-run ## Rebuild and restart Docker
-
-docker-logs: ## Tail Docker container logs
-	docker logs -f $(APP_NAME)
-
-# ── Cleanup ────────────────────────────────────────────────────────
-
-clean: ## Remove all build artifacts and node_modules
-	rm -rf apps/web/dist
-	rm -rf packages/core/dist
-	rm -rf packages/renderer/dist
-	rm -rf node_modules
-	rm -rf apps/web/node_modules
-	rm -rf packages/core/node_modules
-	rm -rf packages/renderer/node_modules
-
-clean-dist: ## Remove build artifacts only
-	rm -rf apps/web/dist
-	rm -rf packages/core/dist
-	rm -rf packages/renderer/dist
-
-# ── Utilities ──────────────────────────────────────────────────────
-
-new-lockfile: ## Regenerate the pnpm lockfile
-	rm -f pnpm-lock.yaml
-	$(PNPM) install
-
-tree: ## Show project structure (requires 'tree' command)
-	tree -I 'node_modules|dist|.git' --dirsfirst
-
-# ── Linting & formatting ──────────────────────────────────────────
+# ==========================================
+# Linting && Formatting
+# ==========================================
 
 lint: ## Run ESLint
 	$(PNPM) run lint
@@ -112,3 +74,6 @@ format: ## Format all files with Prettier
 
 format-check: ## Check formatting without writing
 	$(PNPM) run format:check
+
+.PHONY: help install dev build preview clean typecheck lint docker-build docker-run \
+	core-typecheck renderer-typecheck web-typecheck api-typecheck new-lockfile

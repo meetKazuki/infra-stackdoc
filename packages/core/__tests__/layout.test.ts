@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { buildDoc, buildDevice, buildConnection, buildDocWithChildren } from './fixtures'
+import {
+  buildDoc,
+  buildDevice,
+  buildConnection,
+  buildDocWithChildren,
+  buildDocWithNestedGroups,
+} from './fixtures'
 import { DEFAULT_LAYOUT_OPTIONS } from '../src/types'
 import { layout } from '../src/layout'
 import type { HomelabDocument, PositionedGraph } from '../src/types'
@@ -474,5 +480,202 @@ describe('layout › meta', () => {
     const graph = layout(doc)
 
     expect(graph.meta.title).toBe('My Homelab')
+  })
+})
+
+// ─── Nested groups (Phase 2a: subgroups) ──────────────────────────
+
+describe('layout › nested groups', () => {
+  it('assigns depth 0 to a flat (no-parent) group', () => {
+    const doc = buildDoc({
+      groups: [{ id: 'flat', name: 'Flat' }],
+      devices: [buildDevice({ id: 'srv', name: 'Server', group: 'flat' })],
+    })
+
+    const graph = layout(doc)
+    const flat = graph.groups.find((g) => g.group.id === 'flat')!
+    expect(flat).toBeDefined()
+    expect(flat.depth).toBe(0)
+  })
+
+  it('assigns depth 1 to a one-level nested child', () => {
+    const doc = buildDoc({
+      groups: [
+        { id: 'outer', name: 'Outer' },
+        { id: 'inner', name: 'Inner', parent: 'outer' },
+      ],
+      devices: [
+        buildDevice({ id: 'a', name: 'A', group: 'outer' }),
+        buildDevice({ id: 'b', name: 'B', group: 'inner' }),
+      ],
+      connections: [buildConnection({ from: 'a', to: 'b' })],
+    })
+
+    const graph = layout(doc)
+    const outer = graph.groups.find((g) => g.group.id === 'outer')!
+    const inner = graph.groups.find((g) => g.group.id === 'inner')!
+
+    expect(outer.depth).toBe(0)
+    expect(inner.depth).toBe(1)
+  })
+
+  it('assigns depths 0/1/2 for a three-level nest', () => {
+    const graph = layout(buildDocWithNestedGroups())
+
+    const outer = graph.groups.find((g) => g.group.id === 'outer')!
+    const middle = graph.groups.find((g) => g.group.id === 'middle')!
+    const inner = graph.groups.find((g) => g.group.id === 'inner')!
+
+    expect(outer.depth).toBe(0)
+    expect(middle.depth).toBe(1)
+    expect(inner.depth).toBe(2)
+  })
+
+  it('parent rectangle encloses child rectangle plus padding on all four sides', () => {
+    const doc = buildDoc({
+      groups: [
+        { id: 'outer', name: 'Outer' },
+        { id: 'inner', name: 'Inner', parent: 'outer' },
+      ],
+      devices: [
+        buildDevice({ id: 'a', name: 'A', group: 'outer' }),
+        buildDevice({ id: 'b', name: 'B', group: 'inner' }),
+      ],
+      connections: [buildConnection({ from: 'a', to: 'b' })],
+    })
+
+    const graph = layout(doc)
+    const outer = graph.groups.find((g) => g.group.id === 'outer')!
+    const inner = graph.groups.find((g) => g.group.id === 'inner')!
+
+    // Outer's rectangle must strictly contain inner's, on every side.
+    expect(outer.x).toBeLessThan(inner.x)
+    expect(outer.y).toBeLessThan(inner.y)
+    expect(outer.x + outer.width).toBeGreaterThan(inner.x + inner.width)
+    expect(outer.y + outer.height).toBeGreaterThan(inner.y + inner.height)
+  })
+
+  it('three-level nest: each outer rectangle strictly contains its inner', () => {
+    const graph = layout(buildDocWithNestedGroups())
+
+    const outer = graph.groups.find((g) => g.group.id === 'outer')!
+    const middle = graph.groups.find((g) => g.group.id === 'middle')!
+    const inner = graph.groups.find((g) => g.group.id === 'inner')!
+
+    // middle ⊂ outer
+    expect(outer.x).toBeLessThan(middle.x)
+    expect(outer.y).toBeLessThan(middle.y)
+    expect(outer.x + outer.width).toBeGreaterThan(middle.x + middle.width)
+    expect(outer.y + outer.height).toBeGreaterThan(middle.y + middle.height)
+
+    // inner ⊂ middle
+    expect(middle.x).toBeLessThan(inner.x)
+    expect(middle.y).toBeLessThan(inner.y)
+    expect(middle.x + middle.width).toBeGreaterThan(inner.x + inner.width)
+    expect(middle.y + middle.height).toBeGreaterThan(inner.y + inner.height)
+  })
+
+  it('does not change positioned-group structure for documents without parent fields (backwards compat)', () => {
+    // A document with two flat (no-parent) groups should produce exactly
+    // the same number of PositionedGroup entries as before this feature.
+    const doc = buildDoc({
+      groups: [
+        { id: 'g1', name: 'G1' },
+        { id: 'g2', name: 'G2' },
+      ],
+      devices: [
+        buildDevice({ id: 'a', name: 'A', group: 'g1' }),
+        buildDevice({ id: 'b', name: 'B', group: 'g2' }),
+      ],
+    })
+
+    const graph = layout(doc)
+    expect(graph.groups).toHaveLength(2)
+    expect(graph.groups.every((g) => (g.depth ?? 0) === 0)).toBe(true)
+  })
+})
+
+describe('layout › port enumerations', () => {
+  it('produces a non-null entry for every device, even those without interfaces', () => {
+    const doc = buildDoc({
+      devices: [buildDevice({ id: 'a' }), buildDevice({ id: 'b' })],
+    })
+
+    const graph = layout(doc)
+
+    expect(graph.portEnumerations.get('a')).toEqual([])
+    expect(graph.portEnumerations.get('b')).toEqual([])
+  })
+
+  it('includes child devices in the enumeration map', () => {
+    const doc = buildDoc({
+      devices: [
+        {
+          id: 'host',
+          name: 'Host',
+          type: 'hypervisor',
+          children: [{ id: 'vm', name: 'VM', type: 'vm' }],
+        },
+      ],
+    })
+
+    const graph = layout(doc)
+
+    expect(graph.portEnumerations.has('host')).toBe(true)
+    expect(graph.portEnumerations.has('vm')).toBe(true)
+  })
+
+  it('carries labels through enumeration on a device with labelled ports', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({
+          id: 'router',
+          interfaces: {
+            ethernet: {
+              count: 5,
+              ports: [
+                { label: 'WAN' },
+                { label: 'LAN1' },
+                { label: 'LAN2' },
+                { label: 'LAN3' },
+                { label: 'LAN4' },
+              ],
+            },
+          },
+        }),
+      ],
+    })
+
+    const graph = layout(doc)
+    const ports = graph.portEnumerations.get('router')!
+
+    expect(ports.map((p) => p.label)).toEqual(['WAN', 'LAN1', 'LAN2', 'LAN3', 'LAN4'])
+  })
+})
+
+describe('layout › edge bundle', () => {
+  it('sets PositionedEdge.bundle when the source connection has one', () => {
+    const doc = buildDoc({
+      devices: [buildDevice({ id: 'a' }), buildDevice({ id: 'b' })],
+      connections: [buildConnection({ from: 'a', to: 'b', bundle: 'trunk-1' })],
+    })
+
+    const graph = layout(doc)
+    const edge = findEdge(graph, 'a', 'b')
+
+    expect(edge).toBeDefined()
+    expect(edge!.bundle).toBe('trunk-1')
+  })
+
+  it('leaves PositionedEdge.bundle undefined for connections without bundle', () => {
+    const doc = buildDoc({
+      devices: [buildDevice({ id: 'a' }), buildDevice({ id: 'b' })],
+      connections: [buildConnection({ from: 'a', to: 'b' })],
+    })
+
+    const graph = layout(doc)
+    const edge = findEdge(graph, 'a', 'b')
+
+    expect(edge!.bundle).toBeUndefined()
   })
 })

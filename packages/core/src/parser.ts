@@ -1,6 +1,15 @@
 import yaml from 'js-yaml'
 import { validate } from './validator'
-import type { HomelabDocument, ValidationError, DeviceSpecs } from './types'
+import type {
+  HomelabDocument,
+  ValidationError,
+  DeviceSpecs,
+  DeviceInterfaces,
+  InterfaceGroup,
+  Port,
+  WifiInterface,
+  Connection,
+} from './types'
 
 export type ParseResult =
   | { ok: true; document: HomelabDocument; warnings: ValidationError[] }
@@ -33,10 +42,11 @@ export function parse(yamlString: string): ParseResult {
   }
 
   // Phase 2: Coerce into our typed shape (light normalization)
-  const doc = normalizeDocument(raw as Record<string, unknown>)
+  const parseErrors: ValidationError[] = []
+  const doc = normalizeDocument(raw as Record<string, unknown>, parseErrors)
 
   // Phase 3: Structural validation
-  const allErrors = validate(doc)
+  const allErrors = [...parseErrors, ...validate(doc)]
   const errors = allErrors.filter((e) => e.severity === 'error')
   const warnings = allErrors.filter((e) => e.severity === 'warning')
 
@@ -47,18 +57,78 @@ export function parse(yamlString: string): ParseResult {
   return { ok: true, document: doc, warnings }
 }
 
-// ─── Normalization helpers ────────────────────────────────────────
-// These turn loosely-typed parsed YAML into our stricter interfaces
-// without throwing — we leave error reporting to the validator.
+/* ─── Normalization helpers ────────────────────────────────────────
+ * These turn loosely-typed parsed YAML into our stricter interfaces
+ * without throwing — we leave error reporting to the validator.
+ */
 
-function normalizeDocument(raw: Record<string, unknown>): HomelabDocument {
+function normalizeDocument(
+  raw: Record<string, unknown>,
+  parseErrors: ValidationError[],
+): HomelabDocument {
   return {
     meta: normalizeMeta(raw.meta),
     networks: Array.isArray(raw.networks) ? raw.networks : undefined,
     groups: Array.isArray(raw.groups) ? raw.groups : undefined,
     devices: Array.isArray(raw.devices) ? raw.devices.map(normalizeDevice) : [],
-    connections: Array.isArray(raw.connections) ? raw.connections : [],
+    connections: Array.isArray(raw.connections)
+      ? raw.connections.map((c, i) => normalizeConnection(c, i, parseErrors))
+      : [],
   }
+}
+
+/**
+ * Normalizes a raw connection entry. Passes most fields through but
+ * rejects non-string `fromPort` / `toPort` at the parser layer with a
+ * clear error (see Phase 2c handoff: numeric port references are not
+ * supported; labels only).
+ */
+function normalizeConnection(
+  raw: unknown,
+  index: number,
+  parseErrors: ValidationError[],
+): Connection {
+  if (!isPlainObject(raw)) {
+    // Pass through whatever shape it was; the validator will flag missing from/to.
+    return raw as Connection
+  }
+
+  const conn: Connection = {
+    from: typeof raw.from === 'string' ? raw.from : String(raw.from ?? ''),
+    to: typeof raw.to === 'string' ? raw.to : String(raw.to ?? ''),
+  }
+  if (raw.type != null) conn.type = String(raw.type)
+  if (raw.speed != null) conn.speed = String(raw.speed)
+  if (raw.direction === 'one-way' || raw.direction === 'bidirectional') {
+    conn.direction = raw.direction
+  }
+  if (raw.label != null) conn.label = String(raw.label)
+
+  if (raw.fromPort !== undefined) {
+    if (typeof raw.fromPort !== 'string') {
+      parseErrors.push({
+        path: `connections[${index}].fromPort`,
+        message: 'fromPort must be a string label (numeric references are not supported).',
+        severity: 'error',
+      })
+    } else {
+      conn.fromPort = raw.fromPort
+    }
+  }
+  if (raw.toPort !== undefined) {
+    if (typeof raw.toPort !== 'string') {
+      parseErrors.push({
+        path: `connections[${index}].toPort`,
+        message: 'toPort must be a string label (numeric references are not supported).',
+        severity: 'error',
+      })
+    } else {
+      conn.toPort = raw.toPort
+    }
+  }
+  if (raw.bundle != null) conn.bundle = String(raw.bundle)
+
+  return conn
 }
 
 function normalizeMeta(raw: unknown): HomelabDocument['meta'] {
@@ -110,9 +180,66 @@ function normalizeDevice(raw: unknown): HomelabDocument['devices'][number] {
           }
         })
       : undefined,
-    interfaces:
-      r.interfaces && typeof r.interfaces === 'object'
-        ? (r.interfaces as Record<string, unknown>)
-        : undefined,
+    interfaces: normalizeInterfaces(r.interfaces),
   }
+}
+
+/* ─── Interface normalization ──────────────────────────────────────
+ *
+ * Tolerant: drops malformed sub-fields silently and leaves error
+ * reporting to the validator. Coerces YAML scalars where applicable.
+ */
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function normalizeInterfaces(raw: unknown): DeviceInterfaces | undefined {
+  if (!isPlainObject(raw)) return undefined
+
+  const result: DeviceInterfaces = {}
+  const ethernet = normalizeInterfaceGroup(raw.ethernet)
+  if (ethernet) result.ethernet = ethernet
+  const sfp = normalizeInterfaceGroup(raw.sfp)
+  if (sfp) result.sfp = sfp
+  const usb = normalizeInterfaceGroup(raw.usb)
+  if (usb) result.usb = usb
+  const thunderbolt = normalizeInterfaceGroup(raw.thunderbolt)
+  if (thunderbolt) result.thunderbolt = thunderbolt
+  const wifi = normalizeWifiInterface(raw.wifi)
+  if (wifi) result.wifi = wifi
+
+  return result
+}
+
+function normalizeInterfaceGroup(raw: unknown): InterfaceGroup | undefined {
+  if (!isPlainObject(raw)) return undefined
+
+  const group: InterfaceGroup = {
+    count: raw.count != null ? Number(raw.count) : 0,
+  }
+  if (raw.speed != null) group.speed = String(raw.speed)
+  const ports = normalizePorts(raw.ports)
+  if (ports) group.ports = ports
+  return group
+}
+
+function normalizePorts(raw: unknown): Port[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  return raw.map((entry): Port => {
+    const obj = isPlainObject(entry) ? entry : {}
+    const port: Port = {
+      label: typeof obj.label === 'string' ? obj.label : String(obj.label ?? ''),
+    }
+    if (obj.speed != null) port.speed = String(obj.speed)
+    return port
+  })
+}
+
+function normalizeWifiInterface(raw: unknown): WifiInterface | undefined {
+  if (!isPlainObject(raw)) return undefined
+  const wifi: WifiInterface = {}
+  if (Array.isArray(raw.bands)) wifi.bands = raw.bands.map(String)
+  if (raw.standard != null) wifi.standard = String(raw.standard)
+  return wifi
 }

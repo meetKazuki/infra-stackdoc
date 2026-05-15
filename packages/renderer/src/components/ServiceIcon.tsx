@@ -34,17 +34,14 @@ export const ServiceIcon: React.FC<ServiceIconProps> = ({
 
   const handleError = () => {
     if (!triedLight) {
-      // Try the light variant for dark backgrounds
       setTriedLight(true)
       setSrc(`${CDN_BASE}/${ref}-light.svg`)
     } else {
-      // Both failed — show fallback
       setFailed(true)
     }
   }
 
   if (failed) {
-    // Fallback: coloured dot with first letter
     return (
       <div
         style={{

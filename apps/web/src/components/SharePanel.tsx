@@ -1,4 +1,15 @@
 import React, { useState } from 'react'
+import { createConfig, updateConfig } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
+
+interface SharePanelProps {
+  yaml: string
+  onExportPng: () => void
+  isExporting: boolean
+  // When provided, the primary action becomes "Update this config" (PATCH) rather
+  // than "Share as Link" (POST). The owner-edit flow sets this.
+  editingSlug?: string
+}
 
 const colors = {
   background: 'rgba(12, 21, 39, 0.95)',
@@ -13,12 +24,6 @@ const colors = {
 
 const fonts = {
   mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
-}
-
-interface SharePanelProps {
-  yaml: string
-  onExportPng: () => void
-  isExporting: boolean
 }
 
 const ActionButton: React.FC<{
@@ -57,19 +62,39 @@ const ActionButton: React.FC<{
       <span style={{ color: hovered ? colors.primary : colors.textSecondary, flexShrink: 0 }}>
         {icon}
       </span>
-      <div>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontWeight: 600 }}>{label}</div>
         {sublabel && (
-          <div style={{ fontSize: 9, color: colors.textMuted, marginTop: 2 }}>{sublabel}</div>
+          <div
+            style={{
+              fontSize: 9,
+              color: colors.textMuted,
+              marginTop: 2,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {sublabel}
+          </div>
         )}
       </div>
     </button>
   )
 }
 
-export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExporting }) => {
+export const SharePanel: React.FC<SharePanelProps> = ({
+  yaml,
+  onExportPng,
+  isExporting,
+  editingSlug,
+}) => {
+  const { isLoggedIn } = useAuth()
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [shareResult, setShareResult] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
 
   const handleCopyYaml = async () => {
     try {
@@ -77,7 +102,6 @@ export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExp
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Fallback
       const textarea = document.createElement('textarea')
       textarea.value = yaml
       document.body.appendChild(textarea)
@@ -98,6 +122,65 @@ export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExp
     a.click()
     URL.revokeObjectURL(url)
   }
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+  }
+
+  const handlePrimaryAction = async () => {
+    setSharing(true)
+    setShareError(null)
+    setShareResult(null)
+
+    try {
+      const result = editingSlug
+        ? await updateConfig(editingSlug, yaml)
+        : await createConfig(yaml, 'unlisted')
+      const url = `${window.location.origin}/s/${result.slug}`
+
+      await copyToClipboard(url)
+
+      setShareResult(url)
+      setTimeout(() => setShareResult(null), 5000)
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : 'Failed to share')
+      setTimeout(() => setShareError(null), 4000)
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  // Compute primary-button label/sublabel based on mode and auth state.
+  const primaryLabel = sharing
+    ? editingSlug
+      ? 'Updating...'
+      : 'Creating link...'
+    : shareResult
+      ? editingSlug
+        ? 'Updated!'
+        : 'Link copied!'
+      : editingSlug
+        ? 'Update Config'
+        : 'Share as Link'
+
+  const primarySublabel = shareError
+    ? shareError
+    : shareResult
+      ? shareResult
+      : editingSlug
+        ? 'Save changes to this config'
+        : isLoggedIn
+          ? 'Generate a shareable URL (saved to your account)'
+          : 'Generate a shareable URL'
 
   return (
     <div
@@ -139,7 +222,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExp
         <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
           <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
         </svg>
-        SHARE
+        {editingSlug ? 'SAVE' : 'SHARE'}
       </button>
 
       {/* Dropdown panel */}
@@ -149,7 +232,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExp
             position: 'absolute',
             top: 40,
             right: 0,
-            width: 240,
+            width: 260,
             padding: 8,
             background: colors.background,
             border: `1px solid ${colors.border}`,
@@ -160,6 +243,60 @@ export const SharePanel: React.FC<SharePanelProps> = ({ yaml, onExportPng, isExp
             backdropFilter: 'blur(12px)',
           }}
         >
+          {/* Primary action — share new or update existing */}
+          <ActionButton
+            onClick={handlePrimaryAction}
+            disabled={sharing}
+            icon={
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" />
+              </svg>
+            }
+            label={primaryLabel}
+            sublabel={primarySublabel}
+          />
+
+          {shareResult && (
+            <div
+              style={{
+                padding: '6px 10px',
+                background: `${colors.green}10`,
+                border: `1px solid ${colors.green}25`,
+                borderRadius: 5,
+                fontSize: 9,
+                color: colors.green,
+                fontFamily: fonts.mono,
+                wordBreak: 'break-all',
+              }}
+            >
+              {shareResult}
+            </div>
+          )}
+
+          {shareError && (
+            <div
+              style={{
+                padding: '6px 10px',
+                background: 'rgba(255,23,68,0.1)',
+                border: '1px solid rgba(255,23,68,0.25)',
+                borderRadius: 5,
+                fontSize: 9,
+                color: '#ff1744',
+                fontFamily: fonts.mono,
+              }}
+            >
+              {shareError}
+            </div>
+          )}
+
+          <div
+            style={{
+              height: 1,
+              background: colors.border,
+              margin: '2px 0',
+            }}
+          />
+
           <ActionButton
             onClick={onExportPng}
             disabled={isExporting}

@@ -1,11 +1,15 @@
-import React from 'react'
-import { CodeMirrorEditor } from './CodeMirrorEditor'
+import React, { useState } from 'react'
 import type { ValidationError } from '@homelab-stackdoc/core'
+import { CodeMirrorEditor } from './CodeMirrorEditor'
+import { EditorStatusBar } from './EditorStatusBar'
 
 interface YamlEditorProps {
   value: string
   onChange: (value: string) => void
   errors: ValidationError[]
+  networkCount: number
+  deviceCount: number
+  connectionCount: number
 }
 
 const colors = {
@@ -16,9 +20,17 @@ const colors = {
   textSecondary: '#78909c',
 }
 
-export const YamlEditor: React.FC<YamlEditorProps> = ({ value, onChange, errors }) => {
+export const YamlEditor: React.FC<YamlEditorProps> = ({
+  value,
+  onChange,
+  errors,
+  networkCount,
+  deviceCount,
+  connectionCount,
+}) => {
   const errorCount = errors.filter((e) => e.severity === 'error').length
   const warningCount = errors.filter((e) => e.severity === 'warning').length
+  const [currentLine, setCurrentLine] = useState(1)
 
   return (
     <div
@@ -70,7 +82,7 @@ export const YamlEditor: React.FC<YamlEditorProps> = ({ value, onChange, errors 
 
       {/* Editor */}
       <div style={{ flex: 1, minHeight: 0 }}>
-        <CodeMirrorEditor value={value} onChange={onChange} />
+        <CodeMirrorEditor value={value} onChange={onChange} onCursorChange={setCurrentLine} />
       </div>
 
       {/* Error panel */}
@@ -98,6 +110,15 @@ export const YamlEditor: React.FC<YamlEditorProps> = ({ value, onChange, errors 
           ))}
         </div>
       )}
+
+      {/* Footer status bar */}
+      <EditorStatusBar
+        networkCount={networkCount}
+        deviceCount={deviceCount}
+        connectionCount={connectionCount}
+        errors={errors}
+        currentLine={currentLine}
+      />
     </div>
   )
 }

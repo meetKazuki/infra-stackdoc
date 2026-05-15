@@ -3,14 +3,20 @@ import { colors, fonts, deviceAccent } from '../theme'
 import { getDeviceIconPath, getSpecIconPath } from '../icons'
 import { PortStrip } from './PortStrip'
 import { ServiceIcon } from './ServiceIcon'
-import type { PositionedNode, Device, PortAssignment } from '@homelab-stackdoc/core'
+import type { PositionedNode, Device, PortAssignment, EnumeratedPort } from '@homelab-stackdoc/core'
 
 interface DeviceCardProps {
   node: PositionedNode
   originalDevice: Device
-  onChildClick: (child: Device, parent: Device) => void
   portAssignments: PortAssignment[]
+  portEnumeration?: EnumeratedPort[]
+  dimmed?: boolean
+  focused?: boolean
+  zoomScale?: number
+  showLabel?: boolean
+  onChildClick: (child: Device, parent: Device) => void
   onPortHover?: (deviceId: string, connectedTo: string | null) => void
+  onSelect?: (deviceId: string) => void
 }
 
 const SpecItem: React.FC<{ specKey: string; value: string }> = ({ specKey, value }) => (
@@ -113,7 +119,13 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   originalDevice,
   onChildClick,
   portAssignments,
+  portEnumeration,
   onPortHover,
+  dimmed,
+  focused,
+  zoomScale = 1,
+  showLabel = true,
+  onSelect,
 }) => {
   const [hovered, setHovered] = useState(false)
   const { device, x, y, width, height } = node
@@ -125,10 +137,68 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   const tags = originalDevice.tags ?? []
   const children = originalDevice.children ?? []
 
+  // ── Phase 2d LOD gates ──────────────────────────────────────────
+  // Thresholds match the spec table. `hideDetails` covers port strips
+  // *and* spec rows since both are tiny-text content that goes
+  // unreadable at the same zoom level.
+  const hideDetails = zoomScale < 0.75
+  const renderAsPuck = zoomScale < 0.25
+  // Label is suppressed when (a) the global LOD says so (< 0.5 zoom +
+  // parent's 1-in-4 filter), or (b) puck mode.
+  const labelHidden = renderAsPuck || !showLabel
+
+  const opacity = dimmed ? 0.18 : 1
+
+  // ── Puck mode (< 25% zoom) ──────────────────────────────────────
+  // The card collapses to a small circular puck centred on the card's
+  // centre. Per the spec: `size="sm"` 24×24, no name, no count badge.
+  // We render this in canvas-space so the rest of the canvas transform
+  // (pan/zoom) applies uniformly.
+  if (renderAsPuck) {
+    const PUCK = 24
+    return (
+      <div
+        onClick={(e) => {
+          e.stopPropagation()
+          onSelect?.(device.id)
+        }}
+        style={{
+          position: 'absolute',
+          left: x + width / 2 - PUCK / 2,
+          top: y + height / 2 - PUCK / 2,
+          width: PUCK,
+          height: PUCK,
+          borderRadius: '50%',
+          background: `${accent}25`,
+          border: `1.5px solid ${focused ? colors.primary : `${accent}66`}`,
+          outline: focused ? `1.5px solid ${colors.primary}` : 'none',
+          outlineOffset: focused ? 3 : 0,
+          opacity,
+          cursor: onSelect ? 'pointer' : 'default',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'opacity 0.2s, border-color 0.2s',
+        }}
+      >
+        <svg width={14} height={14} viewBox="0 0 24 24" fill={accent}>
+          <path d={getDeviceIconPath(device.type)} />
+        </svg>
+      </div>
+    )
+  }
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={(e) => {
+        // Selection click. The canvas-level pan-drag detector
+        // upstream is responsible for swallowing this when the user
+        // actually dragged — here we just propagate the intent.
+        e.stopPropagation()
+        onSelect?.(device.id)
+      }}
       style={{
         position: 'absolute',
         left: x,
@@ -138,11 +208,14 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
         background: colors.backgroundSubtle,
         borderRadius: 6,
         overflow: 'visible',
-        border: `1px solid ${hovered ? accent : colors.border}`,
+        border: `1px solid ${focused ? colors.primary : hovered ? accent : colors.border}`,
+        outline: focused ? `1.5px solid ${colors.primary}` : 'none',
+        outlineOffset: focused ? 4 : 0,
         fontFamily: fonts.mono,
-        cursor: 'default',
-        transition: 'border-color 0.2s, box-shadow 0.2s',
+        cursor: onSelect ? 'pointer' : 'default',
+        transition: 'border-color 0.2s, box-shadow 0.2s, opacity 0.2s',
         boxShadow: hovered ? `0 0 24px ${accent}22` : 'none',
+        opacity,
         display: 'flex',
       }}
     >
@@ -172,19 +245,21 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
           <svg width={18} height={18} viewBox="0 0 24 24" fill={accent} style={{ flexShrink: 0 }}>
             <path d={getDeviceIconPath(device.type)} />
           </svg>
-          <span
-            style={{
-              color: colors.textPrimary,
-              fontSize: 13,
-              fontWeight: 700,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {device.name}
-          </span>
-          {device.ip && (
+          {!labelHidden && (
+            <span
+              style={{
+                color: colors.textPrimary,
+                fontSize: 13,
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {device.name}
+            </span>
+          )}
+          {device.ip && !labelHidden && (
             <span style={{ color: colors.textMuted, fontSize: 10, whiteSpace: 'nowrap' }}>
               {device.ip}
             </span>
@@ -202,8 +277,8 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
           </div>
         )}
 
-        {/* Specs — icon + value pairs */}
-        {specs.length > 0 && (
+        {/* Specs — icon + value pairs. Hidden at <75% zoom (Phase 2d LOD). */}
+        {specs.length > 0 && !hideDetails && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 12px' }}>
             {specs.map(([key, value]) => (
               <SpecItem key={key} specKey={key} value={value as string} />
@@ -211,12 +286,13 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
           </div>
         )}
 
-        {/* Port strip */}
-        {originalDevice.interfaces && (
+        {/* Port strip — hidden at <75% zoom (Phase 2d LOD). */}
+        {originalDevice.interfaces && !hideDetails && (
           <PortStrip
             interfaces={originalDevice.interfaces}
             assignments={portAssignments}
             cardWidth={width}
+            portEnumeration={portEnumeration}
             onPortHover={(connectedTo) => onPortHover?.(device.id, connectedTo)}
           />
         )}

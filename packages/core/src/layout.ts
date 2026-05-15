@@ -1,4 +1,5 @@
-import { assignPorts, getPortX } from './ports'
+import { assignPorts, getPortX, getInterfaceGroup } from './ports'
+import { buildGroupDepths, getDescendantGroupIds } from './groups'
 import {
   DEFAULT_LAYOUT_OPTIONS,
   type HomelabDocument,
@@ -11,9 +12,17 @@ import {
   type LayoutOptions,
   type Point,
 } from './types'
+import { enumeratePorts, type EnumeratedPort } from './ports'
 import type { PortAssignment } from './ports'
 
-export function layout(doc: HomelabDocument, userOptions?: LayoutOptions): PositionedGraph {
+interface Rect {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+function layout(doc: HomelabDocument, userOptions?: LayoutOptions): PositionedGraph {
   const opts = { ...DEFAULT_LAYOUT_OPTIONS, ...userOptions }
 
   // 1. Top-level devices only
@@ -39,6 +48,13 @@ export function layout(doc: HomelabDocument, userOptions?: LayoutOptions): Posit
   // 7. Assign ports using original devices (for interface info) and rerouted connections
   const portAssignments = assignPorts(doc.devices, rerouted)
 
+  // 7b. Enumerate ports for every device (independent of connections).
+  // The renderer consumes this so it doesn't have to re-derive port
+  // identity from raw `interfaces`. Every device gets an entry, even
+  // when interfaces are absent (empty array), so the renderer can
+  // safely default-lookup without null checks.
+  const portEnumerations = buildPortEnumerations(doc.devices)
+
   // 8. Group outlines
   const groups = positionGroups(doc.groups ?? [], topLevel, nodeMap, opts)
 
@@ -58,7 +74,25 @@ export function layout(doc: HomelabDocument, userOptions?: LayoutOptions): Posit
     bounds,
     meta: doc.meta,
     portAssignments,
+    portEnumerations,
   }
+}
+
+/**
+ * Walks the full device tree (including children) and builds a map
+ * `deviceId → EnumeratedPort[]`. Children are included because port
+ * assignments target them too (see `assignPorts` over `doc.devices`).
+ */
+function buildPortEnumerations(devices: Device[]): Map<string, EnumeratedPort[]> {
+  const map = new Map<string, EnumeratedPort[]>()
+  const walk = (list: Device[]) => {
+    for (const d of list) {
+      map.set(d.id, enumeratePorts(d))
+      if (d.children) walk(d.children)
+    }
+  }
+  walk(devices)
+  return map
 }
 
 // ─── Hierarchy ────────────────────────────────────────────────────
@@ -280,9 +314,8 @@ function routeEdges(
 
     // Compute exit X: port-level or fan-spread fallback
     if (fromPort && fromDevice?.interfaces) {
-      const iface =
-        fromDevice.interfaces[fromPort.interfaceType as keyof typeof fromDevice.interfaces]
-      const totalPorts = iface && 'count' in iface ? iface.count : 1
+      const iface = getInterfaceGroup(fromDevice, fromPort.interfaceType)
+      const totalPorts = iface?.count ?? 1
       exitX = fromNode.x + getPortX(fromPort.portIndex, totalPorts, fromNode.width)
     } else {
       // Fan-spread fallback
@@ -296,8 +329,8 @@ function routeEdges(
 
     // Compute entry X: port-level or fan-spread fallback
     if (toPort && toDevice?.interfaces) {
-      const iface = toDevice.interfaces[toPort.interfaceType as keyof typeof toDevice.interfaces]
-      const totalPorts = iface && 'count' in iface ? iface.count : 1
+      const iface = getInterfaceGroup(toDevice, toPort.interfaceType)
+      const totalPorts = iface?.count ?? 1
       entryX = toNode.x + getPortX(toPort.portIndex, totalPorts, toNode.width)
     } else {
       const targetSiblings = byTarget.get(conn.to) ?? [conn]
@@ -393,6 +426,7 @@ function routeEdges(
       toNodeId: info.connection.to,
       fromPortIndex: info.fromPortIndex,
       toPortIndex: info.toPortIndex,
+      ...(info.connection.bundle !== undefined ? { bundle: info.connection.bundle } : {}),
     }
   })
 }
@@ -400,9 +434,22 @@ function routeEdges(
 // ─── Groups ───────────────────────────────────────────────────────
 
 /**
- * Positions group outlines. If a group's members span non-adjacent
- * layers (gap > 1 layer), the outline is split into separate boxes
- * per cluster. Only the first cluster gets the label.
+ * Positions group outlines.
+ *
+ * For groups WITHOUT descendants (leaves of the parent-tree), the
+ * existing cluster-splitting behavior is preserved: if a group's
+ * members span non-adjacent layers, the outline splits into separate
+ * boxes per cluster, and only the first cluster gets the label.
+ *
+ * For groups WITH descendants (any group that another group's
+ * `parent` field references), the outline collapses to a SINGLE
+ * rectangle that encloses:
+ *   - all of its own member-cluster rectangles, AND
+ *   - every descendant group's rectangle(s),
+ * with padding scaled by depth so the nesting reads visibly.
+ *
+ * Every PositionedGroup carries a `depth` derived from the parent
+ * chain (0 = top-level), which the renderer uses for visual cues.
  */
 function positionGroups(
   groups: HomelabDocument['groups'],
@@ -412,78 +459,165 @@ function positionGroups(
 ): PositionedGroup[] {
   if (!groups) return []
 
+  const depthMap = buildGroupDepths(groups)
+  const hasDescendants = new Set<string>()
+  for (const g of groups) {
+    if (g.parent) hasDescendants.add(g.parent)
+  }
+
   const pad = opts.groupPadding
   const topPad = pad + 16
+
+  // First pass: compute one or more rectangles for each group based on
+  // its own members. This is the existing cluster-split behaviour,
+  // kept intact for backwards compatibility.
+  const ownRectsByGroup = new Map<string, PositionedGroup[]>()
+
+  for (const group of groups) {
+    const memberNodes = devices
+      .filter((d) => d.group === group.id)
+      .map((m) => nodeMap.get(m.id))
+      .filter(Boolean) as PositionedNode[]
+
+    if (memberNodes.length === 0) {
+      ownRectsByGroup.set(group.id, [])
+      continue
+    }
+
+    const clusters = clusterByConsecutiveDepth(memberNodes)
+    const rects: PositionedGroup[] = []
+
+    for (let ci = 0; ci < clusters.length; ci++) {
+      const bounds = boundingBox(clusters[ci])
+      if (!bounds) continue
+      const isFirst = ci === 0
+
+      rects.push({
+        group: isFirst ? group : { ...group, name: '' }, // empty name hides the label on extra clusters
+        x: bounds.minX - pad,
+        y: bounds.minY - (isFirst ? topPad : pad),
+        width: bounds.maxX - bounds.minX + pad * 2,
+        height: bounds.maxY - bounds.minY + (isFirst ? topPad : pad) + pad,
+        depth: depthMap.get(group.id) ?? 0,
+      })
+    }
+
+    ownRectsByGroup.set(group.id, rects)
+  }
+
+  // Second pass: for each non-leaf group (has descendants), collapse
+  // its rectangles into a single enclosing box that also contains all
+  // descendant rectangles, with depth-scaled extra padding.
   const result: PositionedGroup[] = []
 
   for (const group of groups) {
-    const members = devices.filter((d) => d.group === group.id)
-    if (members.length === 0) continue
+    const ownRects = ownRectsByGroup.get(group.id) ?? []
 
-    // Get positioned nodes for members
-    const memberNodes = members.map((m) => nodeMap.get(m.id)).filter(Boolean) as PositionedNode[]
-
-    if (memberNodes.length === 0) continue
-
-    // Cluster by depth — merge consecutive depths
-    const byDepth = new Map<number, PositionedNode[]>()
-    for (const node of memberNodes) {
-      const list = byDepth.get(node.depth) ?? []
-      list.push(node)
-      byDepth.set(node.depth, list)
+    if (!hasDescendants.has(group.id)) {
+      // Leaf group — preserve cluster-split behaviour exactly.
+      result.push(...ownRects)
+      continue
     }
 
-    const depths = Array.from(byDepth.keys()).sort((a, b) => a - b)
-
-    // Walk depths and cluster consecutive ones
-    const clusters: PositionedNode[][] = []
-    let currentCluster: PositionedNode[] = []
-    let lastDepth = -Infinity
-
-    for (const depth of depths) {
-      if (depth - lastDepth > 1 && currentCluster.length > 0) {
-        clusters.push(currentCluster)
-        currentCluster = []
-      }
-      currentCluster.push(...byDepth.get(depth)!)
-      lastDepth = depth
-    }
-    if (currentCluster.length > 0) {
-      clusters.push(currentCluster)
+    // Non-leaf: collect every rectangle from descendants + own.
+    const descendantIds = getDescendantGroupIds(group.id, groups)
+    const allRects: PositionedGroup[] = [...ownRects]
+    for (const id of descendantIds) {
+      allRects.push(...(ownRectsByGroup.get(id) ?? []))
     }
 
-    // Create a PositionedGroup for each cluster
-    for (let ci = 0; ci < clusters.length; ci++) {
-      const cluster = clusters[ci]
+    if (allRects.length === 0) continue
 
-      let minX = Infinity,
-        minY = Infinity,
-        maxX = -Infinity,
-        maxY = -Infinity
+    const bounds = unionBounds(allRects)
+    if (!bounds) continue
 
-      for (const node of cluster) {
-        minX = Math.min(minX, node.x)
-        minY = Math.min(minY, node.y)
-        maxX = Math.max(maxX, node.x + node.width)
-        maxY = Math.max(maxY, node.y + node.height)
-      }
+    // Extra padding so nested rings read visibly. Each level of nesting
+    // pushes the outer ring out by half a groupPadding.
+    const depth = depthMap.get(group.id) ?? 0
+    const maxDescendantDepth = Math.max(
+      depth,
+      ...Array.from(descendantIds, (id) => depthMap.get(id) ?? 0),
+    )
+    const nestingLevels = maxDescendantDepth - depth
+    const extraPad = (nestingLevels + 1) * (pad / 2)
 
-      if (!isFinite(minX)) continue
-
-      // Only the first cluster gets the label via extra top padding
-      const isFirst = ci === 0
-
-      result.push({
-        group: isFirst ? group : { ...group, name: '' }, // empty name hides the label
-        x: minX - pad,
-        y: minY - (isFirst ? topPad : pad),
-        width: maxX - minX + pad * 2,
-        height: maxY - minY + (isFirst ? topPad : pad) + pad,
-      })
-    }
+    result.push({
+      group,
+      x: bounds.minX - extraPad,
+      y: bounds.minY - extraPad - 16, // 16 for label space on the parent
+      width: bounds.maxX - bounds.minX + extraPad * 2,
+      height: bounds.maxY - bounds.minY + extraPad * 2 + 16,
+      depth,
+    })
   }
 
   return result
+}
+
+/** Bounding box of a set of positioned nodes; null if empty. */
+function boundingBox(nodes: PositionedNode[]): Rect | null {
+  if (nodes.length === 0) return null
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
+  for (const n of nodes) {
+    minX = Math.min(minX, n.x)
+    minY = Math.min(minY, n.y)
+    maxX = Math.max(maxX, n.x + n.width)
+    maxY = Math.max(maxY, n.y + n.height)
+  }
+  if (!isFinite(minX)) return null
+  return { minX, minY, maxX, maxY }
+}
+
+/** Union bounding box of a set of positioned-group rectangles; null if empty. */
+function unionBounds(rects: PositionedGroup[]): Rect | null {
+  if (rects.length === 0) return null
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
+  for (const r of rects) {
+    minX = Math.min(minX, r.x)
+    minY = Math.min(minY, r.y)
+    maxX = Math.max(maxX, r.x + r.width)
+    maxY = Math.max(maxY, r.y + r.height)
+  }
+  if (!isFinite(minX)) return null
+  return { minX, minY, maxX, maxY }
+}
+
+/**
+ * Splits positioned nodes into clusters of consecutive layer depths.
+ * Two nodes belong to the same cluster iff their `depth` values can be
+ * reached without skipping a depth (i.e. no gap > 1 in the sorted list
+ * of depths represented).
+ */
+function clusterByConsecutiveDepth(nodes: PositionedNode[]): PositionedNode[][] {
+  const byDepth = new Map<number, PositionedNode[]>()
+  for (const node of nodes) {
+    const list = byDepth.get(node.depth) ?? []
+    list.push(node)
+    byDepth.set(node.depth, list)
+  }
+  const depths = Array.from(byDepth.keys()).sort((a, b) => a - b)
+
+  const clusters: PositionedNode[][] = []
+  let current: PositionedNode[] = []
+  let lastDepth = -Infinity
+
+  for (const depth of depths) {
+    if (depth - lastDepth > 1 && current.length > 0) {
+      clusters.push(current)
+      current = []
+    }
+    current.push(...byDepth.get(depth)!)
+    lastDepth = depth
+  }
+  if (current.length > 0) clusters.push(current)
+
+  return clusters
 }
 
 // ─── Normalization & bounds ───────────────────────────────────────
@@ -539,3 +673,5 @@ function computeBounds(
   const pad = opts.groupPadding * 2
   return { width: maxX + pad, height: maxY + pad }
 }
+
+export { layout }

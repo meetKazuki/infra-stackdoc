@@ -30,4 +30,12 @@ export default defineConfig({
       },
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://stackdoc.localhost:8087',
+        changeOrigin: true,
+      },
+    },
+  },
 })

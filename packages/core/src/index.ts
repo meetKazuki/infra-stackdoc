@@ -24,7 +24,15 @@ export {
   type InterfaceGroup,
   type WifiInterface,
 } from './types'
+export {
+  enumeratePorts,
+  resolvePortReference,
+  type EnumeratedPort,
+  type EnumerableInterfaceType,
+  type PortAssignment,
+  type PortLayout,
+  type PortResolution,
+} from './ports'
 export { layout } from './layout'
 export { parse, type ParseResult } from './parser'
 export { validate } from './validator'
-export type { PortAssignment, PortLayout } from './ports'

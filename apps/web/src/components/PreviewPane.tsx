@@ -1,8 +1,8 @@
 import html2canvas from 'html2canvas'
 import React, { useRef, useState, useCallback } from 'react'
-import { SharePanel } from './SharePanel'
 import { TopologyCanvas } from '@homelab-stackdoc/renderer'
 import type { PositionedGraph, ValidationError, Device, Connection } from '@homelab-stackdoc/core'
+import { SharePanel } from './SharePanel'
 
 interface PreviewPaneProps {
   graph: PositionedGraph | null
@@ -10,6 +10,7 @@ interface PreviewPaneProps {
   deviceMap: Map<string, Device>
   connections: Connection[]
   yaml: string
+  editingSlug?: string
 }
 
 export const PreviewPane: React.FC<PreviewPaneProps> = ({
@@ -18,6 +19,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
   deviceMap,
   connections,
   yaml,
+  editingSlug,
 }) => {
   const captureRef = useRef<HTMLDivElement>(null)
   const [isExporting, setIsExporting] = useState(false)
@@ -74,7 +76,12 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
       <div ref={captureRef} style={{ height: '100%' }}>
         <TopologyCanvas graph={graph} deviceMap={deviceMap} connections={connections} />
       </div>
-      <SharePanel yaml={yaml} onExportPng={handleExportPng} isExporting={isExporting} />
+      <SharePanel
+        yaml={yaml}
+        onExportPng={handleExportPng}
+        isExporting={isExporting}
+        editingSlug={editingSlug}
+      />
     </div>
   )
 }

@@ -206,4 +206,228 @@ connections: []
       expect(deviceError).toBeDefined()
     })
   })
+
+  // ── Interface normalization ─────────────────────────────────────
+
+  describe('interface normalization', () => {
+    it('parses ethernet ports with labels into typed Port objects', () => {
+      const yaml = `
+meta:
+  title: Ports
+devices:
+  - id: router
+    name: Router
+    type: router
+    interfaces:
+      ethernet:
+        count: 2
+        ports:
+          - label: WAN
+          - label: LAN1
+connections: []
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+
+      const eth = result.document.devices[0].interfaces?.ethernet
+      expect(eth?.count).toBe(2)
+      expect(eth?.ports).toEqual([{ label: 'WAN' }, { label: 'LAN1' }])
+    })
+
+    it('coerces a string count to a number', () => {
+      // YAML quoted scalars stay strings; the normalizer must coerce
+      // so downstream comparisons (e.g. ports.length > count) work.
+      const yaml = `
+meta:
+  title: Coerce
+devices:
+  - id: r
+    name: R
+    type: router
+    interfaces:
+      ethernet:
+        count: "3"
+connections: []
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+
+      expect(result.document.devices[0].interfaces?.ethernet?.count).toBe(3)
+    })
+
+    it('carries per-port speed overrides', () => {
+      const yaml = `
+meta:
+  title: Speeds
+devices:
+  - id: r
+    name: R
+    type: router
+    interfaces:
+      sfp:
+        count: 2
+        speed: 1G
+        ports:
+          - { label: "SFP+ 1", speed: "10G" }
+          - { label: "SFP+ 2" }
+connections: []
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+
+      const sfp = result.document.devices[0].interfaces?.sfp
+      expect(sfp?.ports?.[0]).toEqual({ label: 'SFP+ 1', speed: '10G' })
+      expect(sfp?.ports?.[1]).toEqual({ label: 'SFP+ 2' })
+    })
+
+    it('drops a non-object interfaces field rather than passing garbage through', () => {
+      // Arrays pass `typeof === 'object'` but aren't valid interface
+      // groupings; the normalizer should drop them.
+      const yaml = `
+meta:
+  title: Bad interfaces
+devices:
+  - id: r
+    name: R
+    type: router
+    interfaces:
+      - not
+      - a
+      - map
+connections: []
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+
+      expect(result.document.devices[0].interfaces).toBeUndefined()
+    })
+
+    it('normalizes wifi bands and standard', () => {
+      const yaml = `
+meta:
+  title: Wifi
+devices:
+  - id: ap
+    name: AP
+    type: ap
+    interfaces:
+      wifi:
+        bands: ["2.4", "5"]
+        standard: wifi-6e
+connections: []
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+
+      const wifi = result.document.devices[0].interfaces?.wifi
+      expect(wifi?.bands).toEqual(['2.4', '5'])
+      expect(wifi?.standard).toBe('wifi-6e')
+    })
+  })
+
+  // ── Connection field normalization (Phase 2c) ───────────────────
+
+  describe('connection normalization', () => {
+    it('round-trips fromPort, toPort, and bundle through parse', () => {
+      const yaml = `
+meta:
+  title: Round Trip
+devices:
+  - id: router
+    name: Router
+    type: router
+    interfaces:
+      ethernet:
+        count: 2
+        ports:
+          - label: WAN
+          - label: LAN1
+  - id: nas
+    name: NAS
+    type: nas
+    interfaces:
+      ethernet:
+        count: 1
+        ports:
+          - label: eth0
+connections:
+  - from: router
+    to: nas
+    fromPort: "LAN1"
+    toPort: "eth0"
+    bundle: "trunk-1"
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+
+      const conn = result.document.connections[0]
+      expect(conn.fromPort).toBe('LAN1')
+      expect(conn.toPort).toBe('eth0')
+      expect(conn.bundle).toBe('trunk-1')
+    })
+
+    it('rejects a non-string fromPort with a parser error', () => {
+      // YAML scalar 0 parses as number; Phase 2c labels are strings only.
+      const yaml = `
+meta:
+  title: Bad fromPort
+devices:
+  - id: a
+    name: A
+    type: router
+  - id: b
+    name: B
+    type: nas
+connections:
+  - from: a
+    to: b
+    fromPort: 0
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+
+      const fromPortErrors = result.errors.filter((e) => e.path === 'connections[0].fromPort')
+      expect(fromPortErrors).toHaveLength(1)
+      expect(fromPortErrors[0].message).toMatch(/string/)
+    })
+
+    it('rejects a non-string toPort with a parser error', () => {
+      const yaml = `
+meta:
+  title: Bad toPort
+devices:
+  - id: a
+    name: A
+    type: router
+  - id: b
+    name: B
+    type: nas
+connections:
+  - from: a
+    to: b
+    toPort: 1
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+
+      const toPortErrors = result.errors.filter((e) => e.path === 'connections[0].toPort')
+      expect(toPortErrors).toHaveLength(1)
+    })
+  })
 })

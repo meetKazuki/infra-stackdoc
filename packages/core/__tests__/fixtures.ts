@@ -205,3 +205,95 @@ export function buildDocWithChildren(_expanded: boolean = false): HomelabDocumen
     connections: [{ from: 'hypervisor', to: 'switch' }],
   }
 }
+
+/**
+ * A device with labelled ethernet + SFP ports (Phase 2b: labelled ports).
+ *
+ * Used by validator, ports, and layout tests to exercise label-carrying
+ * port enumeration and assignment.
+ */
+export function buildDeviceWithLabelledPorts(): Device {
+  return buildDevice({
+    id: 'router',
+    name: 'Edge Router',
+    type: 'router',
+    interfaces: {
+      ethernet: {
+        count: 5,
+        speed: '1G',
+        ports: [
+          { label: 'WAN' },
+          { label: 'LAN1' },
+          { label: 'LAN2' },
+          { label: 'LAN3' },
+          { label: 'LAN4' },
+        ],
+      },
+      sfp: {
+        count: 2,
+        ports: [
+          { label: 'SFP+ 1', speed: '10G' },
+          { label: 'SFP+ 2', speed: '10G' },
+        ],
+      },
+    },
+  })
+}
+
+/**
+ * Builds a connection with a `bundle` field set (Phase 2c).
+ * Defaults to `bundle: 'trunk-1'` if not overridden.
+ */
+export function buildConnectionWithBundle(overrides: Partial<Connection> = {}): Connection {
+  return buildConnection({
+    bundle: 'trunk-1',
+    ...overrides,
+  })
+}
+
+/**
+ * A device with a label shared across ethernet and SFP groups (Phase 2c).
+ * Used to exercise the ambiguous-label resolution path.
+ */
+export function buildDeviceWithAmbiguousLabel(): Device {
+  return buildDevice({
+    id: 'router',
+    name: 'Ambiguous Router',
+    type: 'router',
+    interfaces: {
+      ethernet: { count: 1, ports: [{ label: 'WAN' }] },
+      sfp: { count: 1, ports: [{ label: 'WAN' }] },
+    },
+  })
+}
+
+/**
+ * A document with nested groups (subgroup feature, Phase 2a).
+ *
+ * Structure:
+ *   outer (depth 0)
+ *     └── middle (depth 1)
+ *           └── inner (depth 2)
+ *
+ * Each level has its own member device, all in a chain so they land
+ * on distinct layers. This exercises the parent-aware enclosure pass.
+ */
+export function buildDocWithNestedGroups(): HomelabDocument {
+  return {
+    meta: { title: 'Nested Groups Lab' },
+    groups: [
+      { id: 'outer', name: 'Outer', color: '#ffab00' },
+      { id: 'middle', name: 'Middle', parent: 'outer', color: '#00e5ff' },
+      { id: 'inner', name: 'Inner', parent: 'middle', color: '#00e676' },
+    ],
+    devices: [
+      buildDevice({ id: 'top', name: 'Top', group: 'outer' }),
+      buildDevice({ id: 'mid', name: 'Mid', group: 'middle' }),
+      buildDevice({ id: 'leaf', name: 'Leaf', group: 'inner' }),
+    ],
+    connections: [
+      buildConnection({ from: 'top', to: 'mid' }),
+      buildConnection({ from: 'mid', to: 'leaf' }),
+    ],
+  }
+}
