@@ -4,6 +4,9 @@ import type { PositionedGroup } from '@homelab-stackdoc/core'
 
 interface GroupOutlineProps {
   group: PositionedGroup
+  dimmed?: boolean
+  hideLabel?: boolean
+  onToggleCollapse?: () => void
 }
 
 /**
@@ -54,7 +57,12 @@ function depthPrefix(depth: number): string {
   return '─'.repeat(Math.max(0, depth) + 1)
 }
 
-export const GroupOutline: React.FC<GroupOutlineProps> = ({ group }) => {
+export const GroupOutline: React.FC<GroupOutlineProps> = ({
+  group,
+  dimmed,
+  hideLabel,
+  onToggleCollapse,
+}) => {
   const { x, y, width, height } = group
   const depth = group.depth ?? 0
   const accentColor = group.group.color ?? colors.primary
@@ -69,8 +77,9 @@ export const GroupOutline: React.FC<GroupOutlineProps> = ({ group }) => {
   const borderKind = explicitStyle ?? cue.border
 
   // Hide label when name is empty (used by the layout engine to
-  // suppress labels on extra clusters of a split group).
-  const hasLabel = group.group.name.length > 0
+  // suppress labels on extra clusters of a split group), or when
+  // explicitly suppressed via `hideLabel` (zoom-driven LOD, Phase 2d).
+  const hasLabel = group.group.name.length > 0 && !hideLabel
   const label = hasLabel ? `${depthPrefix(depth)} ${group.group.name.toUpperCase()}` : ''
 
   const labelFontSize = cue.fontSize
@@ -84,8 +93,20 @@ export const GroupOutline: React.FC<GroupOutlineProps> = ({ group }) => {
   const charWidth = (labelFontSize / 9) * 5.5
   const approxLabelWidth = label.length * charWidth + labelPadX * 2
 
+  // Collapse-button geometry (Phase 2d). Rendered as a tiny square at
+  // the right edge of the label pill. Sized to roughly match the
+  // label's vertical footprint so the affordance reads as part of the
+  // pill, not a separate sticker.
+  const collapseBtnSize = labelFontSize + labelPadY * 2 - 4
+  const collapseBtnX = labelX - labelPadX + approxLabelWidth + 4
+  const collapseBtnY = labelY - labelFontSize - labelPadY + 3
+
+  // Focus-dim opacity applies to the whole group (Phase 2d). Reuses
+  // the same dim level as DeviceCard for visual consistency.
+  const groupOpacity = dimmed ? 0.18 : 1
+
   return (
-    <g>
+    <g style={{ opacity: groupOpacity, transition: 'opacity 0.2s' }}>
       {/* Background fill — depth-tinted to make nesting read */}
       <rect
         x={x}
@@ -139,6 +160,40 @@ export const GroupOutline: React.FC<GroupOutlineProps> = ({ group }) => {
           >
             {label}
           </text>
+
+          {/* Collapse button (Phase 2d). Renders only when the parent
+              wires the callback — keeps the back-compat path clean
+              when collapse is disabled. */}
+          {onToggleCollapse && (
+            <g
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleCollapse()
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <rect
+                x={collapseBtnX}
+                y={collapseBtnY}
+                width={collapseBtnSize}
+                height={collapseBtnSize}
+                rx={2}
+                ry={2}
+                fill={`${accentColor}22`}
+                stroke={`${accentColor}66`}
+                strokeWidth={1}
+              />
+              <line
+                x1={collapseBtnX + 3}
+                y1={collapseBtnY + collapseBtnSize / 2}
+                x2={collapseBtnX + collapseBtnSize - 3}
+                y2={collapseBtnY + collapseBtnSize / 2}
+                stroke={accentColor}
+                strokeWidth={1.5}
+                strokeLinecap="round"
+              />
+            </g>
+          )}
         </>
       )}
     </g>
