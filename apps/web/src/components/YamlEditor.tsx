@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
+import type { ValidationError } from '@homelab-stackdoc/core'
 import { CodeMirrorEditor } from './CodeMirrorEditor'
 import { EditorStatusBar } from './EditorStatusBar'
-import type { ValidationError } from '@homelab-stackdoc/core'
 
 interface YamlEditorProps {
   value: string

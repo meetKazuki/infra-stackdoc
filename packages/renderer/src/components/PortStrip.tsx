@@ -14,7 +14,7 @@ interface PortStripProps {
 const PORT_W = 18
 const PORT_H = 16
 const PORT_GAP = 3
-const LABEL_MAX_CHARS = 4 // Max characters shown directly under a port; longer labels truncate.
+const LABEL_MAX_CHARS = 4
 
 function truncateLabel(label: string): string {
   if (label.length <= LABEL_MAX_CHARS) return label
@@ -42,7 +42,6 @@ const RJ45Port: React.FC<{
     if (onHover) onHover(null)
   }
 
-  // Label takes precedence over the numeric index when present.
   const captionText = label !== undefined ? truncateLabel(label) : String(index + 1)
 
   return (

@@ -57,7 +57,7 @@ export const SupernodePuck: React.FC<SupernodePuckProps> = ({
         left: centreX - PUCK_SIZE / 2,
         top: centreY - PUCK_SIZE / 2,
         width: PUCK_SIZE,
-        height: PUCK_SIZE + 18, // room for label below
+        height: PUCK_SIZE + 18,
         cursor: 'pointer',
         opacity: outerOpacity,
         transition: 'opacity 0.2s',

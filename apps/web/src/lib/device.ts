@@ -9,6 +9,7 @@ import type { Device } from '@homelab-stackdoc/core'
  */
 export function buildDeviceMap(devices: Device[]): Map<string, Device> {
   const map = new Map<string, Device>()
+
   const walk = (devs: Device[]) => {
     for (const d of devs) {
       map.set(d.id, d)
@@ -16,5 +17,6 @@ export function buildDeviceMap(devices: Device[]): Map<string, Device> {
     }
   }
   walk(devices)
+
   return map
 }

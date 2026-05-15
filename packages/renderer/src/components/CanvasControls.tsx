@@ -2,11 +2,11 @@ import React from 'react'
 import { colors, fonts } from '../theme'
 
 interface CanvasControlsProps {
+  scale: number
   onZoomIn: () => void
   onZoomOut: () => void
   onFitToScreen: () => void
   onResetView: () => void
-  scale: number
 }
 
 const buttonStyle: React.CSSProperties = {
@@ -27,9 +27,9 @@ const buttonStyle: React.CSSProperties = {
 }
 
 const Button: React.FC<{
-  onClick: () => void
   title: string
   children: React.ReactNode
+  onClick: () => void
 }> = ({ onClick, title, children }) => {
   const [hovered, setHovered] = React.useState(false)
 
