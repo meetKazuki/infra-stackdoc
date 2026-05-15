@@ -595,8 +595,6 @@ describe('layout › nested groups', () => {
   })
 })
 
-// ─── Port enumeration on graph (Phase 2b: labelled ports) ─────────
-
 describe('layout › port enumerations', () => {
   it('produces a non-null entry for every device, even those without interfaces', () => {
     const doc = buildDoc({
@@ -654,8 +652,6 @@ describe('layout › port enumerations', () => {
     expect(ports.map((p) => p.label)).toEqual(['WAN', 'LAN1', 'LAN2', 'LAN3', 'LAN4'])
   })
 })
-
-// ─── Bundle propagation onto edges (Phase 2c: parallel links) ─────
 
 describe('layout › edge bundle', () => {
   it('sets PositionedEdge.bundle when the source connection has one', () => {
