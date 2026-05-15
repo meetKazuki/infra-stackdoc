@@ -1,12 +1,17 @@
 import type { Device, Connection, InterfaceGroup } from './types'
 
+type EnumerableInterfaceType = 'ethernet' | 'sfp' | 'usb' | 'thunderbolt' | 'wifi'
+
+type PortResolution = { interfaceType: EnumerableInterfaceType; index: number } | { error: string }
+
 interface PortAssignment {
   deviceId: string
-  interfaceType: 'ethernet' | 'wifi' | 'sfp'
+  interfaceType: EnumerableInterfaceType
   portIndex: number
   connectedTo: string
   speed?: string
   label?: string
+  bundle?: string
 }
 
 interface PortLayout {
@@ -23,8 +28,6 @@ interface EnumeratedPort {
   speed?: string
 }
 
-type EnumerableInterfaceType = 'ethernet' | 'sfp' | 'usb' | 'thunderbolt' | 'wifi'
-
 /** Width of a single port icon + gap */
 const PORT_WIDTH = 18
 const PORT_GAP = 4
@@ -39,75 +42,205 @@ const PORT_DIMENSIONS = {
 
 /**
  * Computes which port on each device each connection uses.
- * Ethernet/SFP connections consume physical ports in order.
+ *
+ * Two-pass algorithm (Phase 2c):
+ *   1. Pin pass — for connections that declare `fromPort` / `toPort`,
+ *      resolve the label and pin the assignment to that
+ *      `(interfaceType, index)`. The slot is marked as taken.
+ *   2. Greedy pass — every remaining side (and connections without
+ *      pinned ports) consumes the next free index per
+ *      `(device, interfaceType)`, skipping any slot pinned in step 1.
+ *
  * WiFi connections don't consume ports but are tracked for the client count.
+ *
+ * Resolution errors here are silent: the validator runs first and
+ * reports them. If resolution still fails (e.g. the validator was
+ * skipped), the side is left unpinned and falls through to greedy —
+ * this is belt-and-braces, not a substitute for validation.
  */
 function assignPorts(devices: Device[], connections: Connection[]): Map<string, PortAssignment[]> {
   const assignments = new Map<string, PortAssignment[]>()
 
-  // Track port usage per device
-  const portCounters = new Map<string, Map<string, number>>()
+  // Used slots per device: Set of `${ifaceType}:${index}`.
+  const usedSlots = new Map<string, Set<string>>()
 
-  // Pre-compute label lookups per device so each assignment can pick up
-  // the user-declared label (if any) without re-walking interfaces.
-  // Key: `${interfaceType}:${portIndex}` → label.
+  // Label lookups per device for greedy-side label propagation.
   const labelLookups = new Map<string, Map<string, string>>()
 
-  for (const device of devices) {
-    assignments.set(device.id, [])
-    portCounters.set(device.id, new Map())
-    labelLookups.set(device.id, buildLabelLookup(device))
+  // Device lookup (children included) so resolvePortReference can
+  // walk interfaces declared on nested devices.
+  const deviceLookup = new Map<string, Device>()
+  const collectDevices = (list: Device[]) => {
+    for (const d of list) {
+      deviceLookup.set(d.id, d)
+      assignments.set(d.id, [])
+      usedSlots.set(d.id, new Set())
+      labelLookups.set(d.id, buildLabelLookup(d))
+      if (d.children) collectDevices(d.children)
+    }
   }
+  collectDevices(devices)
 
-  for (const conn of connections) {
+  // Tracks which side of each connection has already been pinned in
+  // pass 1, so pass 2 doesn't double-assign.
+  interface SideState {
+    fromPinned: boolean
+    toPinned: boolean
+  }
+  const sideStates: SideState[] = connections.map(() => ({ fromPinned: false, toPinned: false }))
+
+  // ── Pass 1: pin labelled references ─────────────────────────────
+  connections.forEach((conn, i) => {
+    if (conn.fromPort !== undefined) {
+      const dev = deviceLookup.get(conn.from)
+      if (dev) {
+        const r = resolvePortReference(dev, conn.fromPort, conn.type)
+        if ('interfaceType' in r) {
+          pinAssignment(
+            conn.from,
+            conn.to,
+            r.interfaceType,
+            r.index,
+            conn.speed,
+            conn.bundle,
+            assignments,
+            usedSlots,
+            labelLookups,
+          )
+          sideStates[i].fromPinned = true
+        }
+      }
+    }
+    if (conn.toPort !== undefined && conn.direction !== 'one-way') {
+      const dev = deviceLookup.get(conn.to)
+      if (dev) {
+        const r = resolvePortReference(dev, conn.toPort, conn.type)
+        if ('interfaceType' in r) {
+          pinAssignment(
+            conn.to,
+            conn.from,
+            r.interfaceType,
+            r.index,
+            conn.speed,
+            conn.bundle,
+            assignments,
+            usedSlots,
+            labelLookups,
+          )
+          sideStates[i].toPinned = true
+        }
+      }
+    }
+  })
+
+  // ── Pass 2: greedy for remaining sides ──────────────────────────
+  connections.forEach((conn, i) => {
     const connType = conn.type ?? 'ethernet'
     const isWifi = connType === 'wifi'
-    const ifaceType = isWifi
+    const ifaceType: EnumerableInterfaceType = isWifi
       ? 'wifi'
       : connType === 'fiber' || connType === 'sfp'
         ? 'sfp'
-        : 'ethernet'
+        : connType === 'usb'
+          ? 'usb'
+          : connType === 'thunderbolt'
+            ? 'thunderbolt'
+            : 'ethernet'
 
-    // Assign port on the 'from' device
-    assignPort(conn.from, conn.to, ifaceType, conn.speed, assignments, portCounters, labelLookups)
-
-    // Assign port on the 'to' device (bidirectional by default)
-    if (conn.direction !== 'one-way') {
-      assignPort(conn.to, conn.from, ifaceType, conn.speed, assignments, portCounters, labelLookups)
+    if (!sideStates[i].fromPinned) {
+      greedyAssign(
+        conn.from,
+        conn.to,
+        ifaceType,
+        conn.speed,
+        conn.bundle,
+        assignments,
+        usedSlots,
+        labelLookups,
+      )
     }
-  }
+    if (conn.direction !== 'one-way' && !sideStates[i].toPinned) {
+      greedyAssign(
+        conn.to,
+        conn.from,
+        ifaceType,
+        conn.speed,
+        conn.bundle,
+        assignments,
+        usedSlots,
+        labelLookups,
+      )
+    }
+  })
 
   return assignments
 }
 
-function assignPort(
+/** Pins an assignment to a specific (interfaceType, index) slot. */
+function pinAssignment(
   deviceId: string,
   connectedTo: string,
-  ifaceType: string,
+  ifaceType: EnumerableInterfaceType,
+  portIndex: number,
   speed: string | undefined,
+  bundle: string | undefined,
   assignments: Map<string, PortAssignment[]>,
-  portCounters: Map<string, Map<string, number>>,
+  usedSlots: Map<string, Set<string>>,
   labelLookups: Map<string, Map<string, string>>,
 ): void {
   const deviceAssignments = assignments.get(deviceId)
-  const counters = portCounters.get(deviceId)
-  if (!deviceAssignments || !counters) return
-
-  const currentIndex = counters.get(ifaceType) ?? 0
-  counters.set(ifaceType, currentIndex + 1)
+  const used = usedSlots.get(deviceId)
+  if (!deviceAssignments || !used) return
 
   const assignment: PortAssignment = {
     deviceId,
-    interfaceType: ifaceType as 'ethernet' | 'wifi' | 'sfp',
-    portIndex: currentIndex,
+    interfaceType: ifaceType,
+    portIndex,
     connectedTo,
-    speed,
   }
+  if (speed !== undefined) assignment.speed = speed
+  if (bundle !== undefined) assignment.bundle = bundle
 
-  const label = labelLookups.get(deviceId)?.get(`${ifaceType}:${currentIndex}`)
+  const label = labelLookups.get(deviceId)?.get(`${ifaceType}:${portIndex}`)
   if (label !== undefined) assignment.label = label
 
   deviceAssignments.push(assignment)
+  used.add(`${ifaceType}:${portIndex}`)
+}
+
+/** Greedy: hands out the next free index for (device, ifaceType), skipping pinned slots. */
+function greedyAssign(
+  deviceId: string,
+  connectedTo: string,
+  ifaceType: EnumerableInterfaceType,
+  speed: string | undefined,
+  bundle: string | undefined,
+  assignments: Map<string, PortAssignment[]>,
+  usedSlots: Map<string, Set<string>>,
+  labelLookups: Map<string, Map<string, string>>,
+): void {
+  const deviceAssignments = assignments.get(deviceId)
+  const used = usedSlots.get(deviceId)
+  if (!deviceAssignments || !used) return
+
+  // Find next free index.
+  let index = 0
+  while (used.has(`${ifaceType}:${index}`)) index++
+
+  const assignment: PortAssignment = {
+    deviceId,
+    interfaceType: ifaceType,
+    portIndex: index,
+    connectedTo,
+  }
+  if (speed !== undefined) assignment.speed = speed
+  if (bundle !== undefined) assignment.bundle = bundle
+
+  const label = labelLookups.get(deviceId)?.get(`${ifaceType}:${index}`)
+  if (label !== undefined) assignment.label = label
+
+  deviceAssignments.push(assignment)
+  used.add(`${ifaceType}:${index}`)
 }
 
 function appendGroupPorts(
@@ -217,15 +350,74 @@ function getInterfaceGroup(
   return ifaces[type]
 }
 
+function compatibleInterfaceType(connType: string): EnumerableInterfaceType | null {
+  switch (connType) {
+    case 'ethernet':
+      return 'ethernet'
+    case 'fiber':
+    case 'sfp':
+      return 'sfp'
+    case 'wifi':
+      return 'wifi'
+    case 'usb':
+      return 'usb'
+    case 'thunderbolt':
+      return 'thunderbolt'
+    default:
+      return null
+  }
+}
+
+function resolvePortReference(device: Device, label: string, connType?: string): PortResolution {
+  const ports = enumeratePorts(device)
+
+  // When connType is given and recognized, filter to the compatible group.
+  let constraint: EnumerableInterfaceType | null = null
+  if (connType !== undefined) {
+    constraint = compatibleInterfaceType(connType)
+  }
+
+  const matches = ports.filter((p) => {
+    if (p.label !== label) return false
+    if (constraint !== null && p.interfaceType !== constraint) return false
+    return true
+  })
+
+  if (matches.length === 0) {
+    // Distinguish "label exists but wrong type" from "label missing entirely".
+    const labelExistsSomewhere = ports.some((p) => p.label === label)
+    if (labelExistsSomewhere && constraint !== null) {
+      const groups = ports.filter((p) => p.label === label).map((p) => p.interfaceType)
+      return {
+        error: `Port '${label}' exists on ${device.id} but not on a ${constraint}-compatible interface (found on ${groups.join(', ')}).`,
+      }
+    }
+    return { error: `Port '${label}' does not exist on device '${device.id}'.` }
+  }
+
+  if (matches.length > 1) {
+    const groups = Array.from(new Set(matches.map((m) => `${m.interfaceType}.${label}`))).join(
+      ' and ',
+    )
+    return {
+      error: `'${label}' is ambiguous (matches ${groups}); specify type:`,
+    }
+  }
+
+  return { interfaceType: matches[0].interfaceType, index: matches[0].index }
+}
+
 export {
   PORT_DIMENSIONS,
   EnumerableInterfaceType,
   EnumeratedPort,
   PortAssignment,
   PortLayout,
+  PortResolution,
   assignPorts,
   enumeratePorts,
   getPortX,
   getPortStripY,
   getInterfaceGroup,
+  resolvePortReference,
 }

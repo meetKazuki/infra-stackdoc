@@ -241,6 +241,33 @@ export function buildDeviceWithLabelledPorts(): Device {
 }
 
 /**
+ * Builds a connection with a `bundle` field set (Phase 2c).
+ * Defaults to `bundle: 'trunk-1'` if not overridden.
+ */
+export function buildConnectionWithBundle(overrides: Partial<Connection> = {}): Connection {
+  return buildConnection({
+    bundle: 'trunk-1',
+    ...overrides,
+  })
+}
+
+/**
+ * A device with a label shared across ethernet and SFP groups (Phase 2c).
+ * Used to exercise the ambiguous-label resolution path.
+ */
+export function buildDeviceWithAmbiguousLabel(): Device {
+  return buildDevice({
+    id: 'router',
+    name: 'Ambiguous Router',
+    type: 'router',
+    interfaces: {
+      ethernet: { count: 1, ports: [{ label: 'WAN' }] },
+      sfp: { count: 1, ports: [{ label: 'WAN' }] },
+    },
+  })
+}
+
+/**
  * A document with nested groups (subgroup feature, Phase 2a).
  *
  * Structure:

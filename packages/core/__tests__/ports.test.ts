@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { buildDevice, buildConnection, buildDeviceWithLabelledPorts } from './fixtures'
-import { enumeratePorts } from '../src/ports'
-import { assignPorts, getInterfaceGroup } from '../src/ports'
+import {
+  buildDevice,
+  buildConnection,
+  buildDeviceWithLabelledPorts,
+  buildDeviceWithAmbiguousLabel,
+} from './fixtures'
+import { assignPorts, enumeratePorts, getInterfaceGroup, resolvePortReference } from '../src/ports'
 
 // ─── Enumeration ──────────────────────────────────────────────────
 
@@ -211,5 +215,160 @@ describe('getInterfaceGroup', () => {
     const device = buildDevice({ id: 'bare' })
 
     expect(getInterfaceGroup(device, 'ethernet')).toBeUndefined()
+  })
+
+  it('returns the InterfaceGroup for usb and thunderbolt (Phase 2c widening)', () => {
+    const device = buildDevice({
+      id: 'host',
+      interfaces: {
+        usb: { count: 4 },
+        thunderbolt: { count: 2 },
+      },
+    })
+
+    expect(getInterfaceGroup(device, 'usb')).toEqual({ count: 4 })
+    expect(getInterfaceGroup(device, 'thunderbolt')).toEqual({ count: 2 })
+  })
+})
+
+// ─── Port reference resolution (Phase 2c) ─────────────────────────
+
+describe('resolvePortReference', () => {
+  it('returns the matching (interfaceType, index) for a labelled port', () => {
+    const device = buildDeviceWithLabelledPorts()
+
+    const r = resolvePortReference(device, 'LAN2')
+
+    expect(r).toEqual({ interfaceType: 'ethernet', index: 2 })
+  })
+
+  it('returns an error when the label is missing entirely', () => {
+    const device = buildDeviceWithLabelledPorts()
+
+    const r = resolvePortReference(device, 'NOPE')
+
+    expect('error' in r).toBe(true)
+    if ('error' in r) {
+      expect(r.error).toContain('NOPE')
+      expect(r.error).toContain('router')
+    }
+  })
+
+  it('filters by connType and rejects mismatches', () => {
+    const device = buildDeviceWithLabelledPorts() // WAN is on ethernet
+
+    const r = resolvePortReference(device, 'WAN', 'fiber') // fiber → sfp
+
+    expect('error' in r).toBe(true)
+    if ('error' in r) {
+      expect(r.error).toMatch(/sfp/)
+    }
+  })
+
+  it('flags ambiguity when two groups share the label and no connType is given', () => {
+    const device = buildDeviceWithAmbiguousLabel()
+
+    const r = resolvePortReference(device, 'WAN')
+
+    expect('error' in r).toBe(true)
+    if ('error' in r) {
+      expect(r.error).toMatch(/ambiguous/)
+      expect(r.error).toContain('ethernet.WAN')
+      expect(r.error).toContain('sfp.WAN')
+    }
+  })
+
+  it('disambiguates the same label when connType is given', () => {
+    const device = buildDeviceWithAmbiguousLabel()
+
+    const r = resolvePortReference(device, 'WAN', 'ethernet')
+
+    expect(r).toEqual({ interfaceType: 'ethernet', index: 0 })
+  })
+})
+
+// ─── Two-pass assignment with pinned ports (Phase 2c) ─────────────
+
+describe('assignPorts › pinned references', () => {
+  it('produces an assignment pinned to the resolved index when fromPort is set', () => {
+    const router = buildDeviceWithLabelledPorts()
+    const nas = buildDevice({ id: 'nas', interfaces: { ethernet: { count: 1 } } })
+    const conn = buildConnection({
+      from: 'router',
+      to: 'nas',
+      fromPort: 'LAN3', // ethernet index 3
+      type: 'ethernet',
+    })
+
+    const assignments = assignPorts([router, nas], [conn])
+
+    const routerSide = assignments.get('router')!
+    expect(routerSide).toHaveLength(1)
+    expect(routerSide[0].interfaceType).toBe('ethernet')
+    expect(routerSide[0].portIndex).toBe(3)
+    expect(routerSide[0].label).toBe('LAN3')
+  })
+
+  it('greedy assignment skips a slot already pinned on the same (device, interfaceType)', () => {
+    const router = buildDeviceWithLabelledPorts()
+    const a = buildDevice({ id: 'a', interfaces: { ethernet: { count: 1 } } })
+    const b = buildDevice({ id: 'b', interfaces: { ethernet: { count: 1 } } })
+
+    const assignments = assignPorts(
+      [router, a, b],
+      [
+        // First connection pins ethernet index 0 (WAN).
+        buildConnection({ from: 'router', to: 'a', fromPort: 'WAN', type: 'ethernet' }),
+        // Second connection is greedy; it must skip 0 and land on 1.
+        buildConnection({ from: 'router', to: 'b', type: 'ethernet' }),
+      ],
+    )
+
+    const routerSide = assignments.get('router')!
+    expect(routerSide).toHaveLength(2)
+
+    // Pin came first.
+    expect(routerSide[0].portIndex).toBe(0)
+    expect(routerSide[0].connectedTo).toBe('a')
+    // Greedy landed on the next free slot, NOT on 0.
+    expect(routerSide[1].portIndex).toBe(1)
+    expect(routerSide[1].connectedTo).toBe('b')
+  })
+
+  it("copies Connection.bundle onto each member's PortAssignment", () => {
+    const router = buildDeviceWithLabelledPorts()
+    const sw = buildDevice({
+      id: 'switch',
+      interfaces: { sfp: { count: 2, ports: [{ label: 'SFP+ 1' }, { label: 'SFP+ 2' }] } },
+    })
+
+    const assignments = assignPorts(
+      [router, sw],
+      [
+        buildConnection({
+          from: 'router',
+          to: 'switch',
+          fromPort: 'SFP+ 1',
+          toPort: 'SFP+ 1',
+          type: 'sfp',
+          bundle: 'trunk-1',
+        }),
+        buildConnection({
+          from: 'router',
+          to: 'switch',
+          fromPort: 'SFP+ 2',
+          toPort: 'SFP+ 2',
+          type: 'sfp',
+          bundle: 'trunk-1',
+        }),
+      ],
+    )
+
+    const routerSide = assignments.get('router')!
+    expect(routerSide.every((a) => a.bundle === 'trunk-1')).toBe(true)
+    expect(routerSide).toHaveLength(2)
+
+    const switchSide = assignments.get('switch')!
+    expect(switchSide.every((a) => a.bundle === 'trunk-1')).toBe(true)
   })
 })

@@ -334,4 +334,100 @@ connections: []
       expect(wifi?.standard).toBe('wifi-6e')
     })
   })
+
+  // ── Connection field normalization (Phase 2c) ───────────────────
+
+  describe('connection normalization', () => {
+    it('round-trips fromPort, toPort, and bundle through parse', () => {
+      const yaml = `
+meta:
+  title: Round Trip
+devices:
+  - id: router
+    name: Router
+    type: router
+    interfaces:
+      ethernet:
+        count: 2
+        ports:
+          - label: WAN
+          - label: LAN1
+  - id: nas
+    name: NAS
+    type: nas
+    interfaces:
+      ethernet:
+        count: 1
+        ports:
+          - label: eth0
+connections:
+  - from: router
+    to: nas
+    fromPort: "LAN1"
+    toPort: "eth0"
+    bundle: "trunk-1"
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+
+      const conn = result.document.connections[0]
+      expect(conn.fromPort).toBe('LAN1')
+      expect(conn.toPort).toBe('eth0')
+      expect(conn.bundle).toBe('trunk-1')
+    })
+
+    it('rejects a non-string fromPort with a parser error', () => {
+      // YAML scalar 0 parses as number; Phase 2c labels are strings only.
+      const yaml = `
+meta:
+  title: Bad fromPort
+devices:
+  - id: a
+    name: A
+    type: router
+  - id: b
+    name: B
+    type: nas
+connections:
+  - from: a
+    to: b
+    fromPort: 0
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+
+      const fromPortErrors = result.errors.filter((e) => e.path === 'connections[0].fromPort')
+      expect(fromPortErrors).toHaveLength(1)
+      expect(fromPortErrors[0].message).toMatch(/string/)
+    })
+
+    it('rejects a non-string toPort with a parser error', () => {
+      const yaml = `
+meta:
+  title: Bad toPort
+devices:
+  - id: a
+    name: A
+    type: router
+  - id: b
+    name: B
+    type: nas
+connections:
+  - from: a
+    to: b
+    toPort: 1
+`
+      const result = parse(yaml)
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+
+      const toPortErrors = result.errors.filter((e) => e.path === 'connections[0].toPort')
+      expect(toPortErrors).toHaveLength(1)
+    })
+  })
 })

@@ -426,6 +426,7 @@ function routeEdges(
       toNodeId: info.connection.to,
       fromPortIndex: info.fromPortIndex,
       toPortIndex: info.toPortIndex,
+      ...(info.connection.bundle !== undefined ? { bundle: info.connection.bundle } : {}),
     }
   })
 }
@@ -436,7 +437,7 @@ function routeEdges(
  * Positions group outlines.
  *
  * For groups WITHOUT descendants (leaves of the parent-tree), the
- * existing cluster-splitting behaviour is preserved: if a group's
+ * existing cluster-splitting behavior is preserved: if a group's
  * members span non-adjacent layers, the outline splits into separate
  * boxes per cluster, and only the first cluster gets the label.
  *

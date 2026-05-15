@@ -8,6 +8,7 @@ import type {
   InterfaceGroup,
   Port,
   WifiInterface,
+  Connection,
 } from './types'
 
 export type ParseResult =
@@ -41,10 +42,11 @@ export function parse(yamlString: string): ParseResult {
   }
 
   // Phase 2: Coerce into our typed shape (light normalization)
-  const doc = normalizeDocument(raw as Record<string, unknown>)
+  const parseErrors: ValidationError[] = []
+  const doc = normalizeDocument(raw as Record<string, unknown>, parseErrors)
 
   // Phase 3: Structural validation
-  const allErrors = validate(doc)
+  const allErrors = [...parseErrors, ...validate(doc)]
   const errors = allErrors.filter((e) => e.severity === 'error')
   const warnings = allErrors.filter((e) => e.severity === 'warning')
 
@@ -60,14 +62,73 @@ export function parse(yamlString: string): ParseResult {
  * without throwing — we leave error reporting to the validator.
  */
 
-function normalizeDocument(raw: Record<string, unknown>): HomelabDocument {
+function normalizeDocument(
+  raw: Record<string, unknown>,
+  parseErrors: ValidationError[],
+): HomelabDocument {
   return {
     meta: normalizeMeta(raw.meta),
     networks: Array.isArray(raw.networks) ? raw.networks : undefined,
     groups: Array.isArray(raw.groups) ? raw.groups : undefined,
     devices: Array.isArray(raw.devices) ? raw.devices.map(normalizeDevice) : [],
-    connections: Array.isArray(raw.connections) ? raw.connections : [],
+    connections: Array.isArray(raw.connections)
+      ? raw.connections.map((c, i) => normalizeConnection(c, i, parseErrors))
+      : [],
   }
+}
+
+/**
+ * Normalizes a raw connection entry. Passes most fields through but
+ * rejects non-string `fromPort` / `toPort` at the parser layer with a
+ * clear error (see Phase 2c handoff: numeric port references are not
+ * supported; labels only).
+ */
+function normalizeConnection(
+  raw: unknown,
+  index: number,
+  parseErrors: ValidationError[],
+): Connection {
+  if (!isPlainObject(raw)) {
+    // Pass through whatever shape it was; the validator will flag missing from/to.
+    return raw as Connection
+  }
+
+  const conn: Connection = {
+    from: typeof raw.from === 'string' ? raw.from : String(raw.from ?? ''),
+    to: typeof raw.to === 'string' ? raw.to : String(raw.to ?? ''),
+  }
+  if (raw.type != null) conn.type = String(raw.type)
+  if (raw.speed != null) conn.speed = String(raw.speed)
+  if (raw.direction === 'one-way' || raw.direction === 'bidirectional') {
+    conn.direction = raw.direction
+  }
+  if (raw.label != null) conn.label = String(raw.label)
+
+  if (raw.fromPort !== undefined) {
+    if (typeof raw.fromPort !== 'string') {
+      parseErrors.push({
+        path: `connections[${index}].fromPort`,
+        message: 'fromPort must be a string label (numeric references are not supported).',
+        severity: 'error',
+      })
+    } else {
+      conn.fromPort = raw.fromPort
+    }
+  }
+  if (raw.toPort !== undefined) {
+    if (typeof raw.toPort !== 'string') {
+      parseErrors.push({
+        path: `connections[${index}].toPort`,
+        message: 'toPort must be a string label (numeric references are not supported).',
+        severity: 'error',
+      })
+    } else {
+      conn.toPort = raw.toPort
+    }
+  }
+  if (raw.bundle != null) conn.bundle = String(raw.bundle)
+
+  return conn
 }
 
 function normalizeMeta(raw: unknown): HomelabDocument['meta'] {
@@ -155,9 +216,6 @@ function normalizeInterfaceGroup(raw: unknown): InterfaceGroup | undefined {
   if (!isPlainObject(raw)) return undefined
 
   const group: InterfaceGroup = {
-    // Number(undefined) is NaN; the validator does its own structural
-    // checks downstream. Default to 0 so well-formed YAML without an
-    // explicit count behaves as "no ports declared."
     count: raw.count != null ? Number(raw.count) : 0,
   }
   if (raw.speed != null) group.speed = String(raw.speed)
@@ -171,8 +229,6 @@ function normalizePorts(raw: unknown): Port[] | undefined {
   return raw.map((entry): Port => {
     const obj = isPlainObject(entry) ? entry : {}
     const port: Port = {
-      // Empty string when missing/non-string. The validator reports
-      // empty-label errors at the correct path.
       label: typeof obj.label === 'string' ? obj.label : String(obj.label ?? ''),
     }
     if (obj.speed != null) port.speed = String(obj.speed)

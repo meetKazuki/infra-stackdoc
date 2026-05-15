@@ -1,11 +1,12 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react'
 import { CanvasControls } from './CanvasControls'
 import { colors, fonts } from '../theme'
+import { BundleTrunk } from './BundleTrunk'
 import { ConnectionLine } from './ConnectionLine'
 import { DetailModal } from './DetailModal'
 import { DeviceCard } from './DeviceCard'
 import { GroupOutline } from './GroupOutline'
-import type { PositionedGraph, Device, Connection } from '@homelab-stackdoc/core'
+import type { PositionedGraph, PositionedEdge, Device, Connection } from '@homelab-stackdoc/core'
 
 interface TopologyCanvasProps {
   graph: PositionedGraph
@@ -198,7 +199,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         {graph.meta.subtitle && (
           <span style={{ color: colors.textMuted, fontSize: 10 }}>{graph.meta.subtitle}</span>
         )}
-        {(graph.meta.tags ?? []).map((tag) => (
+        {(graph.meta.tags ?? []).map((tag: string) => (
           <span
             key={tag}
             style={{
@@ -272,21 +273,56 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
           {graph.groups.map((g, i) => (
             <GroupOutline key={`${g.group.id}-${i}`} group={g} />
           ))}
-          {graph.edges.map((edge, i) => {
-            const isHighlighted = highlightedEdge
-              ? (edge.fromNodeId === highlightedEdge.from &&
-                  edge.toNodeId === highlightedEdge.to) ||
-                (edge.fromNodeId === highlightedEdge.to && edge.toNodeId === highlightedEdge.from)
-              : false
+          {(() => {
+            // Group edges by bundle. Edges without a bundle render
+            // individually as before (load-bearing backwards compat).
+            const bundles = new Map<string, PositionedEdge[]>()
+            const standalone: PositionedEdge[] = []
+            for (const edge of graph.edges) {
+              if (edge.bundle !== undefined) {
+                const list = bundles.get(edge.bundle) ?? []
+                list.push(edge)
+                bundles.set(edge.bundle, list)
+              } else {
+                standalone.push(edge)
+              }
+            }
+
+            const edgeKey = (e: PositionedEdge): string => `${e.fromNodeId}→${e.toNodeId}`
+            const isEdgeHighlighted = (e: PositionedEdge): boolean =>
+              highlightedEdge !== null &&
+              ((e.fromNodeId === highlightedEdge.from && e.toNodeId === highlightedEdge.to) ||
+                (e.fromNodeId === highlightedEdge.to && e.toNodeId === highlightedEdge.from))
+
             return (
-              <ConnectionLine
-                key={i}
-                edge={edge}
-                highlighted={isHighlighted}
-                dimmed={highlightedEdge !== null && !isHighlighted}
-              />
+              <>
+                {standalone.map((edge) => {
+                  const hi = isEdgeHighlighted(edge)
+                  return (
+                    <ConnectionLine
+                      key={edgeKey(edge)}
+                      edge={edge}
+                      highlighted={hi}
+                      dimmed={highlightedEdge !== null && !hi}
+                    />
+                  )
+                })}
+                {Array.from(bundles.entries()).map(([bundleName, members]) => {
+                  const highlightedMember = members.find(isEdgeHighlighted)
+                  const otherBundleHighlighted = highlightedEdge !== null && !highlightedMember
+                  return (
+                    <BundleTrunk
+                      key={`bundle-${bundleName}`}
+                      edges={members}
+                      keyFor={edgeKey}
+                      highlightedKey={highlightedMember ? edgeKey(highlightedMember) : undefined}
+                      dimmed={otherBundleHighlighted}
+                    />
+                  )
+                })}
+              </>
             )
-          })}
+          })()}
         </svg>
         {graph.nodes.map((node) => {
           const original = deviceMap.get(node.device.id)

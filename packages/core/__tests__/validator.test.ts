@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { buildDoc, buildDevice, buildConnection } from './fixtures'
+import {
+  buildDoc,
+  buildDevice,
+  buildConnection,
+  buildDeviceWithLabelledPorts,
+  buildDeviceWithAmbiguousLabel,
+} from './fixtures'
 import { validate } from '../src/validator'
 import type { HomelabDocument, ValidationError } from '../src/types'
 
@@ -625,5 +631,199 @@ describe('validate › port labels', () => {
     const emptyErrors = errors(validate(doc)).filter((e) => e.message.includes('non-empty'))
     expect(emptyErrors).toHaveLength(1)
     expect(emptyErrors[0].path).toBe('devices[0].children[0].interfaces.ethernet.ports[0].label')
+  })
+})
+
+// ─── Connection port validation (Phase 2c: parallel links) ────────
+
+describe('validate › connection ports', () => {
+  it('accepts a connection without fromPort/toPort/bundle (backwards compat)', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDeviceWithLabelledPorts(),
+        buildDevice({ id: 'nas', interfaces: { ethernet: { count: 1 } } }),
+      ],
+      connections: [buildConnection({ from: 'router', to: 'nas' })],
+    })
+
+    const portErrors = errors(validate(doc)).filter(
+      (e) => e.path.startsWith('connections') && e.path !== 'connections[0].from',
+    )
+    expect(portErrors).toHaveLength(0)
+  })
+
+  it('returns an error when fromPort references a missing label', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDeviceWithLabelledPorts(),
+        buildDevice({ id: 'nas', interfaces: { ethernet: { count: 1 } } }),
+      ],
+      connections: [buildConnection({ from: 'router', to: 'nas', fromPort: 'NOPE' })],
+    })
+
+    const fromPortErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].fromPort')
+    expect(fromPortErrors).toHaveLength(1)
+    expect(fromPortErrors[0].message).toContain('NOPE')
+  })
+
+  it('returns an error when toPort references a missing label', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDeviceWithLabelledPorts(),
+        buildDevice({
+          id: 'nas',
+          interfaces: { ethernet: { count: 2, ports: [{ label: 'eth0' }, { label: 'eth1' }] } },
+        }),
+      ],
+      connections: [buildConnection({ from: 'router', to: 'nas', toPort: 'NOPE' })],
+    })
+
+    const toPortErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].toPort')
+    expect(toPortErrors).toHaveLength(1)
+  })
+
+  it('returns an error when the label resolves but the interface type is incompatible', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDeviceWithLabelledPorts(), // WAN exists on ethernet
+        buildDevice({ id: 'peer', interfaces: { ethernet: { count: 1 } } }),
+      ],
+      // type: fiber requires sfp, but WAN on router is an ethernet label
+      connections: [
+        buildConnection({ from: 'router', to: 'peer', fromPort: 'WAN', type: 'fiber' }),
+      ],
+    })
+
+    const fromPortErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].fromPort')
+    expect(fromPortErrors).toHaveLength(1)
+    expect(fromPortErrors[0].message).toMatch(/sfp/)
+  })
+
+  it('returns an ambiguous-label error when no conn.type disambiguates', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDeviceWithAmbiguousLabel(),
+        buildDevice({ id: 'peer', interfaces: { ethernet: { count: 1 } } }),
+      ],
+      // No type: → 'WAN' could be ethernet or sfp.
+      connections: [buildConnection({ from: 'router', to: 'peer', fromPort: 'WAN' })],
+    })
+
+    const fromPortErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].fromPort')
+    expect(fromPortErrors).toHaveLength(1)
+    expect(fromPortErrors[0].message).toMatch(/ambiguous/)
+    expect(fromPortErrors[0].message).toContain('ethernet.WAN')
+    expect(fromPortErrors[0].message).toContain('sfp.WAN')
+  })
+
+  it('accepts the same ambiguous label when conn.type disambiguates', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDeviceWithAmbiguousLabel(),
+        buildDevice({ id: 'peer', interfaces: { ethernet: { count: 1 } } }),
+      ],
+      connections: [
+        buildConnection({ from: 'router', to: 'peer', fromPort: 'WAN', type: 'ethernet' }),
+      ],
+    })
+
+    const fromPortErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].fromPort')
+    expect(fromPortErrors).toHaveLength(0)
+  })
+
+  it('returns a double-binding error when two connections claim the same slot', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDeviceWithLabelledPorts(),
+        buildDevice({
+          id: 'a',
+          interfaces: { ethernet: { count: 1 } },
+        }),
+        buildDevice({
+          id: 'b',
+          interfaces: { ethernet: { count: 1 } },
+        }),
+      ],
+      connections: [
+        buildConnection({ from: 'router', to: 'a', fromPort: 'WAN' }),
+        buildConnection({ from: 'router', to: 'b', fromPort: 'WAN' }), // same slot
+      ],
+    })
+
+    const dupErrors = errors(validate(doc)).filter((e) => e.message.includes('already claimed'))
+    expect(dupErrors).toHaveLength(1)
+    // Error fires on the SECOND occurrence.
+    expect(dupErrors[0].path).toBe('connections[1].fromPort')
+  })
+
+  it('returns a phantom-assignment error when conn.type is ethernet but no device has ethernet', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({ id: 'a', interfaces: { sfp: { count: 1 } } }),
+        buildDevice({ id: 'b', interfaces: { sfp: { count: 1 } } }),
+      ],
+      connections: [buildConnection({ from: 'a', to: 'b', type: 'ethernet' })],
+    })
+
+    const typeErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].type')
+    expect(typeErrors).toHaveLength(1)
+    expect(typeErrors[0].message).toContain('ethernet')
+  })
+
+  it('does NOT fire phantom-assignment when conn.type is absent', () => {
+    // Same shape as above but with no `type:`. Default ethernet is too
+    // common to break — handoff explicitly carves this out.
+    const doc = buildDoc({
+      devices: [
+        buildDevice({ id: 'a', interfaces: { sfp: { count: 1 } } }),
+        buildDevice({ id: 'b', interfaces: { sfp: { count: 1 } } }),
+      ],
+      connections: [buildConnection({ from: 'a', to: 'b' })],
+    })
+
+    const typeErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].type')
+    expect(typeErrors).toHaveLength(0)
+  })
+
+  it('does NOT fire phantom-assignment when a device declares no interfaces at all', () => {
+    // A device that opts out of port modeling shouldn't trip the check.
+    // Preserves backwards compatibility for fixtures like FULL_YAML.
+    const doc = buildDoc({
+      devices: [
+        buildDevice({ id: 'a' }), // no interfaces
+        buildDevice({ id: 'b' }), // no interfaces
+      ],
+      connections: [buildConnection({ from: 'a', to: 'b', type: 'ethernet' })],
+    })
+
+    const typeErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].type')
+    expect(typeErrors).toHaveLength(0)
+  })
+
+  it('does NOT fire phantom-assignment for wifi connections', () => {
+    // Wifi has no count-bearing group; the check skips it.
+    const doc = buildDoc({
+      devices: [
+        buildDevice({ id: 'a', interfaces: { ethernet: { count: 1 } } }),
+        buildDevice({ id: 'b', interfaces: { ethernet: { count: 1 } } }),
+      ],
+      connections: [buildConnection({ from: 'a', to: 'b', type: 'wifi' })],
+    })
+
+    const typeErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].type')
+    expect(typeErrors).toHaveLength(0)
+  })
+
+  it('does NOT fire phantom-assignment when at least one endpoint has the required group', () => {
+    const doc = buildDoc({
+      devices: [
+        buildDevice({ id: 'a', interfaces: { ethernet: { count: 1 } } }),
+        buildDevice({ id: 'b', interfaces: { sfp: { count: 1 } } }),
+      ],
+      connections: [buildConnection({ from: 'a', to: 'b', type: 'ethernet' })],
+    })
+
+    const typeErrors = errors(validate(doc)).filter((e) => e.path === 'connections[0].type')
+    expect(typeErrors).toHaveLength(0)
   })
 })
