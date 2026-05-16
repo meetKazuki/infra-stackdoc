@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchTemplate, fetchTemplates, createTemplateFromSlug } from '../lib/api'
+import { ApiError, fetchTemplate, fetchTemplates, createTemplateFromSlug } from '../lib/api'
+import { FatalError } from './FatalError'
 import { useAuth } from '../context/AuthContext'
 import type { TemplateCategory, TemplateSummary } from '../lib/api.types'
 
@@ -110,16 +111,22 @@ export const Templates: React.FC = () => {
   const { isLoggedIn } = useAuth()
   const [templates, setTemplates] = useState<TemplateSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [fatal, setFatal] = useState<{ status: number | null } | null>(null)
   const [category, setCategory] = useState<TemplateCategory | null>(null)
   const [usingSlug, setUsingSlug] = useState<string | null>(null)
 
   const load = useCallback(async (cat: TemplateCategory | null) => {
     setError(null)
+    setFatal(null)
     setTemplates(null)
     try {
       const result = await fetchTemplates(cat ?? undefined)
       setTemplates(result.data)
     } catch (err) {
+      if (err instanceof ApiError && (err.isNetwork || (err.status ?? 0) >= 500)) {
+        setFatal({ status: err.status })
+        return
+      }
       setError(err instanceof Error ? err.message : 'Failed to load templates')
     }
   }, [])
@@ -152,13 +159,17 @@ export const Templates: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <CategoryFilter selected={category} onSelect={setCategory} />
 
-      {error && (
+      {fatal && (
+        <FatalError source="/api/templates" status={fatal.status} onRetry={() => load(category)} />
+      )}
+
+      {!fatal && error && (
         <div style={{ color: colors.red, fontFamily: fonts.mono, fontSize: 12, padding: 16 }}>
           {error}
         </div>
       )}
 
-      {!error && templates === null && (
+      {!fatal && !error && templates === null && (
         <div
           style={{
             padding: 24,
@@ -171,7 +182,7 @@ export const Templates: React.FC = () => {
         </div>
       )}
 
-      {!error && templates !== null && templates.length === 0 && (
+      {!fatal && !error && templates !== null && templates.length === 0 && (
         <div
           style={{
             padding: 40,
@@ -186,12 +197,10 @@ export const Templates: React.FC = () => {
         </div>
       )}
 
-      {!error && templates !== null && templates.length > 0 && (
+      {!fatal && !error && templates !== null && templates.length > 0 && (
         <div
           style={{
             display: 'grid',
-            // auto-fill + minmax gives 3 cols on a ~900px-wide content area,
-            // 2 cols on tablet, 1 col on narrow viewports — no media queries.
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: 16,
           }}
@@ -278,8 +287,6 @@ const TemplateCard: React.FC<{
         border: `1px solid ${hovered ? colors.borderHover : colors.border}`,
         borderRadius: 8,
         fontFamily: fonts.mono,
-        // overflow:hidden keeps the thumbnail edges flush with the rounded
-        // corners; without it the SVG bleeds past the border-radius.
         overflow: 'hidden',
         transition: 'border-color 0.15s',
       }}
@@ -326,8 +333,6 @@ const TemplateCard: React.FC<{
               fontWeight: 700,
               letterSpacing: '0.05em',
               color: accent,
-              // Two-digit hex alpha suffixes: 15 ≈ 8%, 40 ≈ 25%. Tuned to
-              // sit quietly against the dark card background.
               background: `${accent}15`,
               border: `1px solid ${accent}40`,
             }}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchMyConfigs, deleteConfig } from '../lib/api'
+import { ApiError, fetchMyConfigs, deleteConfig } from '../lib/api'
+import { FatalError } from './FatalError'
 import type { MyConfig } from '../lib/api.types'
 
 const colors = {
@@ -29,14 +30,20 @@ export const MyConfigs: React.FC = () => {
   const navigate = useNavigate()
   const [configs, setConfigs] = useState<MyConfig[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [fatal, setFatal] = useState<{ status: number | null } | null>(null)
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setError(null)
+    setFatal(null)
     try {
       const data = await fetchMyConfigs()
       setConfigs(data)
     } catch (err) {
+      if (err instanceof ApiError && (err.isNetwork || (err.status ?? 0) >= 500)) {
+        setFatal({ status: err.status })
+        return
+      }
       setError(err instanceof Error ? err.message : 'Failed to load configs')
     }
   }, [])
@@ -58,6 +65,14 @@ export const MyConfigs: React.FC = () => {
     } finally {
       setDeletingSlug(null)
     }
+  }
+
+  if (fatal) {
+    return (
+      <div style={{ padding: 24 }}>
+        <FatalError source="/api/configs/user/me" status={fatal.status} onRetry={load} />
+      </div>
+    )
   }
 
   if (error) {
