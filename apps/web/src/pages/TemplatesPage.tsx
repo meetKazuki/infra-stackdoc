@@ -74,7 +74,7 @@ export const TemplatesPage: React.FC = () => {
 
       <div
         style={{
-          maxWidth: 800,
+          maxWidth: 1200,
           margin: '0 auto',
           padding: 24,
         }}
