@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchGallery } from '../lib/api'
+import { ApiError, fetchGallery } from '../lib/api'
+import { FatalError } from './FatalError'
 import type { GallerySort, GallerySummary } from '../lib/api.types'
 
 const colors = {
@@ -41,6 +42,7 @@ export const Gallery: React.FC = () => {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fatal, setFatal] = useState<{ status: number | null } | null>(null)
 
   const [sort, setSort] = useState<GallerySort>('recent')
   const [tag, setTag] = useState<string | null>(null)
@@ -63,6 +65,7 @@ export const Gallery: React.FC = () => {
       const requestId = ++requestIdRef.current
       setLoading(true)
       setError(null)
+      setFatal(null)
       try {
         const result = await fetchGallery({
           sort,
@@ -76,6 +79,10 @@ export const Gallery: React.FC = () => {
         setItems((prev) => (pageToLoad === 1 ? result.data : [...prev, ...result.data]))
       } catch (err) {
         if (requestId !== requestIdRef.current) return
+        if (err instanceof ApiError && (err.isNetwork || (err.status ?? 0) >= 500)) {
+          setFatal({ status: err.status })
+          return
+        }
         setError(err instanceof Error ? err.message : 'Failed to load gallery')
       } finally {
         if (requestId === requestIdRef.current) {
@@ -109,13 +116,17 @@ export const Gallery: React.FC = () => {
 
       <ResultsMeta items={items.length} total={total} loading={loading} />
 
-      {error && (
+      {fatal && (
+        <FatalError source="/api/gallery" status={fatal.status} onRetry={() => load(page)} />
+      )}
+
+      {!fatal && error && (
         <div style={{ color: colors.red, fontFamily: fonts.mono, fontSize: 12, padding: 16 }}>
           {error}
         </div>
       )}
 
-      {!error && items.length === 0 && !loading && (
+      {!fatal && !error && items.length === 0 && !loading && (
         <div
           style={{
             padding: 40,

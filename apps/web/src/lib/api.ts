@@ -10,9 +10,25 @@ import {
   User,
 } from './api.types'
 
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number | null,
+    public readonly isNetwork: boolean,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
 const AUTH_INVALIDATED = 'auth:invalidated'
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 const defaultInit: RequestInit = { credentials: 'include' }
+
+async function failedResponse(response: Response, fallback: string): Promise<never> {
+  const body = await response.json().catch(() => ({}))
+  throw new ApiError(body.message || `${fallback} (${response.status})`, response.status, false)
+}
 
 function loginUrl(): string {
   return `${API_BASE}/auth/github`
@@ -99,17 +115,22 @@ async function fetchConfig(slug: string): Promise<SharedConfig> {
 }
 
 async function fetchMyConfigs(): Promise<MyConfig[]> {
-  const response = await fetch(`${API_BASE}/configs/user/me`, defaultInit)
+  try {
+    const response = await fetch(`${API_BASE}/configs/user/me`, defaultInit)
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      notifyAuthInvalidated()
-      throw new Error('Not authenticated')
+    if (!response.ok) {
+      if (response.status === 401) {
+        notifyAuthInvalidated()
+        throw new ApiError('Not authenticated', 401, false)
+      }
+      return failedResponse(response, 'Failed to load configs')
     }
-    throw new Error(`Failed to load configs (${response.status})`)
-  }
 
-  return response.json()
+    return response.json()
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    throw new ApiError(err instanceof Error ? err.message : 'Network error', null, true)
+  }
 }
 
 async function fetchTemplates(
@@ -121,13 +142,16 @@ async function fetchTemplates(
 
   if (category) params.set('category', category)
 
-  const response = await fetch(`${API_BASE}/templates?${params.toString()}`, defaultInit)
+  try {
+    const response = await fetch(`${API_BASE}/templates?${params.toString()}`, defaultInit)
 
-  if (!response.ok) {
-    throw new Error(`Failed to load templates (${response.status})`)
+    if (!response.ok) return failedResponse(response, 'Failed to load templates')
+
+    return response.json()
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    throw new ApiError(err instanceof Error ? err.message : 'Network error', null, true)
   }
-
-  return response.json()
 }
 
 async function fetchTemplate(slug: string): Promise<TemplateDetail> {
@@ -151,13 +175,16 @@ async function fetchGallery(query: GalleryQuery = {}): Promise<GalleryListRespon
   if (query.tag) params.set('tag', query.tag)
   if (query.search) params.set('search', query.search)
 
-  const response = await fetch(`${API_BASE}/configs?${params.toString()}`, defaultInit)
+  try {
+    const response = await fetch(`${API_BASE}/configs?${params.toString()}`, defaultInit)
 
-  if (!response.ok) {
-    throw new Error(`Failed to load gallery (${response.status})`)
+    if (!response.ok) return failedResponse(response, 'Failed to load gallery')
+
+    return response.json()
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    throw new ApiError(err instanceof Error ? err.message : 'Network error', null, true)
   }
-
-  return response.json()
 }
 
 async function updateConfig(
@@ -199,6 +226,7 @@ async function deleteConfig(slug: string): Promise<void> {
 
 export {
   AUTH_INVALIDATED,
+  ApiError,
   loginUrl,
   createConfig,
   forkConfig,
