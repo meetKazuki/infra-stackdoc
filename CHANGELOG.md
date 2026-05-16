@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0](https://github.com/meetKazuki/infra-stackdoc/compare/v0.3.0...v0.4.0) (2026-05-16)
+
+
+### Features
+
+* improve visuals across editor, configs, gallery & template ([#52](https://github.com/meetKazuki/infra-stackdoc/issues/52)) ([3493da9](https://github.com/meetKazuki/infra-stackdoc/commit/3493da9b1ccc8ddf629d2fe52df398d098025de1))
+
 ## [0.3.0](https://github.com/meetKazuki/infra-stackdoc/compare/v0.2.0...v0.3.0) (2026-05-15)
 
 
