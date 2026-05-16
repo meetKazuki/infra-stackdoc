@@ -4,11 +4,9 @@ import { useAuth } from '../context/AuthContext'
 
 interface SharePanelProps {
   yaml: string
-  onExportPng: () => void
   isExporting: boolean
-  // When provided, the primary action becomes "Update this config" (PATCH) rather
-  // than "Share as Link" (POST). The owner-edit flow sets this.
   editingSlug?: string
+  onExportPng: () => void
 }
 
 const colors = {
@@ -26,14 +24,28 @@ const fonts = {
   mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
 }
 
+const sectionLabel: React.CSSProperties = {
+  fontSize: 9,
+  color: colors.textMuted,
+  letterSpacing: '0.1em',
+  fontWeight: 700,
+}
+
 const ActionButton: React.FC<{
   onClick: () => void
   icon: React.ReactNode
   label: string
   sublabel?: string
   disabled?: boolean
-}> = ({ onClick, icon, label, sublabel, disabled }) => {
+  tone?: 'default' | 'primary'
+}> = ({ onClick, icon, label, sublabel, disabled, tone = 'default' }) => {
   const [hovered, setHovered] = useState(false)
+
+  const iconColor = hovered
+    ? colors.primary
+    : tone === 'primary'
+      ? colors.primary
+      : colors.textSecondary
 
   return (
     <button
@@ -46,8 +58,8 @@ const ActionButton: React.FC<{
         alignItems: 'center',
         gap: 10,
         width: '100%',
-        padding: '10px 12px',
-        background: hovered ? 'rgba(0, 229, 255, 0.06)' : 'transparent',
+        padding: '8px 10px',
+        background: hovered ? 'rgba(0, 229, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)',
         border: `1px solid ${hovered ? colors.borderHover : colors.border}`,
         borderRadius: 6,
         color: colors.textPrimary,
@@ -59,11 +71,18 @@ const ActionButton: React.FC<{
         opacity: disabled ? 0.5 : 1,
       }}
     >
-      <span style={{ color: hovered ? colors.primary : colors.textSecondary, flexShrink: 0 }}>
-        {icon}
-      </span>
+      <span style={{ color: iconColor, flexShrink: 0 }}>{icon}</span>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontWeight: 600 }}>{label}</div>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            color: colors.textPrimary,
+          }}
+        >
+          {label}
+        </div>
         {sublabel && (
           <div
             style={{
@@ -92,9 +111,13 @@ export const SharePanel: React.FC<SharePanelProps> = ({
   const { isLoggedIn } = useAuth()
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [urlCopied, setUrlCopied] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [justShared, setJustShared] = useState(false)
   const [shareResult, setShareResult] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
+
+  const publicUrl = editingSlug ? `${window.location.origin}/s/${editingSlug}` : shareResult
 
   const handleCopyYaml = async () => {
     try {
@@ -136,6 +159,13 @@ export const SharePanel: React.FC<SharePanelProps> = ({
     }
   }
 
+  const handleCopyUrl = async () => {
+    if (!publicUrl) return
+    await copyToClipboard(publicUrl)
+    setUrlCopied(true)
+    setTimeout(() => setUrlCopied(false), 2000)
+  }
+
   const handlePrimaryAction = async () => {
     setSharing(true)
     setShareError(null)
@@ -150,7 +180,8 @@ export const SharePanel: React.FC<SharePanelProps> = ({
       await copyToClipboard(url)
 
       setShareResult(url)
-      setTimeout(() => setShareResult(null), 5000)
+      setJustShared(true)
+      setTimeout(() => setJustShared(false), 2000)
     } catch (err) {
       setShareError(err instanceof Error ? err.message : 'Failed to share')
       setTimeout(() => setShareError(null), 4000)
@@ -160,27 +191,28 @@ export const SharePanel: React.FC<SharePanelProps> = ({
   }
 
   // Compute primary-button label/sublabel based on mode and auth state.
+  // `justShared` (2s) provides the brief success tick without clearing publicUrl.
   const primaryLabel = sharing
     ? editingSlug
       ? 'Updating...'
       : 'Creating link...'
-    : shareResult
+    : justShared
       ? editingSlug
         ? 'Updated!'
         : 'Link copied!'
       : editingSlug
         ? 'Update Config'
-        : 'Share as Link'
+        : publicUrl
+          ? 'Share again'
+          : 'Share as Link'
 
-  const primarySublabel = shareError
-    ? shareError
-    : shareResult
-      ? shareResult
-      : editingSlug
-        ? 'Save changes to this config'
-        : isLoggedIn
-          ? 'Generate a shareable URL (saved to your account)'
-          : 'Generate a shareable URL'
+  const primarySublabel = editingSlug
+    ? 'Save changes to this config'
+    : publicUrl
+      ? 'Generate a new URL'
+      : isLoggedIn
+        ? 'Generate a shareable URL (saved to your account)'
+        : 'Generate a shareable URL'
 
   return (
     <div
@@ -232,7 +264,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({
             position: 'absolute',
             top: 40,
             right: 0,
-            width: 260,
+            width: 320,
             padding: 8,
             background: colors.background,
             border: `1px solid ${colors.border}`,
@@ -243,6 +275,67 @@ export const SharePanel: React.FC<SharePanelProps> = ({
             backdropFilter: 'blur(12px)',
           }}
         >
+          <div style={sectionLabel}>PUBLIC URL</div>
+
+          {/* URL row — always rendered when panel is open; content depends on publicUrl */}
+          <div
+            onClick={publicUrl ? handleCopyUrl : undefined}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 10px',
+              background: 'rgba(8, 15, 30, 0.6)',
+              border: `1px solid ${colors.border}`,
+              borderRadius: 4,
+              fontFamily: fonts.mono,
+              fontSize: 11,
+              color: colors.primary,
+              cursor: publicUrl ? 'pointer' : 'default',
+            }}
+          >
+            {publicUrl ? (
+              <>
+                <span
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  {publicUrl.replace(/^https?:\/\//, '')}
+                </span>
+                <svg
+                  width={12}
+                  height={12}
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  style={{ color: colors.textSecondary, flexShrink: 0 }}
+                >
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                </svg>
+              </>
+            ) : (
+              <span style={{ color: colors.textMuted, flex: 1 }}>not yet shared</span>
+            )}
+          </div>
+
+          {urlCopied && (
+            <div
+              style={{
+                fontSize: 9,
+                color: colors.green,
+                marginTop: -4,
+                paddingLeft: 2,
+                fontFamily: fonts.mono,
+              }}
+            >
+              ✓ URL copied to clipboard
+            </div>
+          )}
+
           {/* Primary action — share new or update existing */}
           <ActionButton
             onClick={handlePrimaryAction}
@@ -255,23 +348,6 @@ export const SharePanel: React.FC<SharePanelProps> = ({
             label={primaryLabel}
             sublabel={primarySublabel}
           />
-
-          {shareResult && (
-            <div
-              style={{
-                padding: '6px 10px',
-                background: `${colors.green}10`,
-                border: `1px solid ${colors.green}25`,
-                borderRadius: 5,
-                fontSize: 9,
-                color: colors.green,
-                fontFamily: fonts.mono,
-                wordBreak: 'break-all',
-              }}
-            >
-              {shareResult}
-            </div>
-          )}
 
           {shareError && (
             <div
@@ -289,17 +365,12 @@ export const SharePanel: React.FC<SharePanelProps> = ({
             </div>
           )}
 
-          <div
-            style={{
-              height: 1,
-              background: colors.border,
-              margin: '2px 0',
-            }}
-          />
+          <div style={{ ...sectionLabel, marginTop: 4 }}>EXPORT AS</div>
 
           <ActionButton
             onClick={onExportPng}
             disabled={isExporting}
+            tone="primary"
             icon={
               <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor">
                 <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />

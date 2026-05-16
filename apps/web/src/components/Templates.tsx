@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchTemplate, fetchTemplates, createTemplateFromSlug } from '../lib/api'
+import { ApiError, fetchTemplate, fetchTemplates, createTemplateFromSlug } from '../lib/api'
+import { FatalError } from './FatalError'
 import { useAuth } from '../context/AuthContext'
 import type { TemplateCategory, TemplateSummary } from '../lib/api.types'
 
@@ -20,6 +21,21 @@ const fonts = {
   mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
 }
 
+// Category → accent colour. Drives both the thumbnail strokes and the
+// category-tag pill so a card reads as a coherent unit. The 'uncategorised'
+// key handles `category === null` templates; same grey as 'general' since
+// neither has a strong identity to express.
+const categoryColor: Record<TemplateCategory | 'uncategorised', string> = {
+  networking: '#00e5ff',
+  media: '#d500f9',
+  virtualization: '#ffab00',
+  storage: '#00e676',
+  monitoring: '#ffd600',
+  'home-automation': '#ff5252',
+  general: '#78909c',
+  uncategorised: '#78909c',
+}
+
 interface CategoryOption {
   value: TemplateCategory | null
   label: string
@@ -36,21 +52,81 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
   { value: 'home-automation', label: 'HOME AUTOMATION' },
 ]
 
+// Generic preview glyph. Same topology for every template — only the stroke
+// colour changes. Per-template visual variety is deferred to a future phase
+// that can render real previews from the YAML.
+const MiniDots: React.FC<{ color: string }> = ({ color }) => (
+  <svg
+    width="100%"
+    height="100%"
+    viewBox="0 0 200 120"
+    preserveAspectRatio="none"
+    style={{ display: 'block' }}
+  >
+    <line
+      x1="20"
+      y1="30"
+      x2="180"
+      y2="30"
+      stroke={color}
+      strokeWidth="0.5"
+      strokeDasharray="2 3"
+      opacity="0.5"
+    />
+    <line x1="100" y1="30" x2="100" y2="90" stroke={color} strokeWidth="0.5" opacity="0.5" />
+    <line x1="40" y1="90" x2="160" y2="90" stroke={color} strokeWidth="0.5" opacity="0.5" />
+    {[30, 80, 130, 170].map((x, i) => (
+      <g key={`top-${i}`}>
+        <rect
+          x={x - 12}
+          y={20}
+          width="24"
+          height="20"
+          rx="2"
+          fill="rgba(12, 21, 39, 0.6)"
+          stroke={color}
+          strokeWidth="0.5"
+        />
+        <circle cx={x} cy="30" r="2" fill={color} />
+      </g>
+    ))}
+    {[40, 80, 120, 160].map((x, i) => (
+      <rect
+        key={`bot-${i}`}
+        x={x - 10}
+        y={80}
+        width="20"
+        height="14"
+        rx="1.5"
+        fill="rgba(12, 21, 39, 0.6)"
+        stroke="#00e676"
+        strokeWidth="0.4"
+      />
+    ))}
+  </svg>
+)
+
 export const Templates: React.FC = () => {
   const navigate = useNavigate()
   const { isLoggedIn } = useAuth()
   const [templates, setTemplates] = useState<TemplateSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [fatal, setFatal] = useState<{ status: number | null } | null>(null)
   const [category, setCategory] = useState<TemplateCategory | null>(null)
   const [usingSlug, setUsingSlug] = useState<string | null>(null)
 
   const load = useCallback(async (cat: TemplateCategory | null) => {
     setError(null)
+    setFatal(null)
     setTemplates(null)
     try {
       const result = await fetchTemplates(cat ?? undefined)
       setTemplates(result.data)
     } catch (err) {
+      if (err instanceof ApiError && (err.isNetwork || (err.status ?? 0) >= 500)) {
+        setFatal({ status: err.status })
+        return
+      }
       setError(err instanceof Error ? err.message : 'Failed to load templates')
     }
   }, [])
@@ -83,13 +159,17 @@ export const Templates: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <CategoryFilter selected={category} onSelect={setCategory} />
 
-      {error && (
+      {fatal && (
+        <FatalError source="/api/templates" status={fatal.status} onRetry={() => load(category)} />
+      )}
+
+      {!fatal && error && (
         <div style={{ color: colors.red, fontFamily: fonts.mono, fontSize: 12, padding: 16 }}>
           {error}
         </div>
       )}
 
-      {!error && templates === null && (
+      {!fatal && !error && templates === null && (
         <div
           style={{
             padding: 24,
@@ -102,7 +182,7 @@ export const Templates: React.FC = () => {
         </div>
       )}
 
-      {!error && templates !== null && templates.length === 0 && (
+      {!fatal && !error && templates !== null && templates.length === 0 && (
         <div
           style={{
             padding: 40,
@@ -117,8 +197,14 @@ export const Templates: React.FC = () => {
         </div>
       )}
 
-      {!error && templates !== null && templates.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {!fatal && !error && templates !== null && templates.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: 16,
+          }}
+        >
           {templates.map((template) => (
             <TemplateCard
               key={template.slug}
@@ -187,87 +273,112 @@ const TemplateCard: React.FC<{
   using: boolean
 }> = ({ template, onPreview, onUse, using }) => {
   const [hovered, setHovered] = useState(false)
+  const accent = categoryColor[template.category ?? 'uncategorised']
+  const categoryLabel = template.category?.toUpperCase() ?? 'GENERAL'
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        padding: 16,
+        display: 'flex',
+        flexDirection: 'column',
         background: colors.cardBackground,
         border: `1px solid ${hovered ? colors.borderHover : colors.border}`,
         borderRadius: 8,
         fontFamily: fonts.mono,
+        overflow: 'hidden',
         transition: 'border-color 0.15s',
       }}
     >
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 12,
+          height: 120,
+          flexShrink: 0,
+          background: colors.background,
+          borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <div style={{ minWidth: 0, flex: 1 }}>
+        <MiniDots color={accent} />
+      </div>
+
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
           <div
             style={{
               color: colors.textPrimary,
-              fontSize: 14,
-              fontWeight: 600,
-              marginBottom: 4,
+              fontSize: 13,
+              fontWeight: 700,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              minWidth: 0,
             }}
           >
             {template.title}
           </div>
-          <div
+          <span
             style={{
-              color: colors.textMuted,
-              fontSize: 10,
-              display: 'flex',
-              gap: 12,
-              flexWrap: 'wrap',
+              flexShrink: 0,
+              padding: '2px 8px',
+              borderRadius: 4,
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              color: accent,
+              background: `${accent}15`,
+              border: `1px solid ${accent}40`,
             }}
           >
-            {template.category && <span>{template.category}</span>}
-            <span>
-              {template.viewCount} view{template.viewCount !== 1 ? 's' : ''}
-            </span>
-          </div>
-          {template.tags.length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 6,
-                marginTop: 8,
-              }}
-            >
-              {template.tags.map((tag) => (
-                <span
-                  key={tag}
-                  style={{
-                    padding: '2px 8px',
-                    background: 'rgba(0, 229, 255, 0.06)',
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: 10,
-                    color: colors.textSecondary,
-                    fontSize: 9,
-                  }}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
+            {categoryLabel}
+          </span>
         </div>
 
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        {template.tags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {template.tags.map((tag) => (
+              <span
+                key={tag}
+                style={{
+                  padding: '1px 7px',
+                  background: 'rgba(0, 229, 255, 0.06)',
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 10,
+                  color: colors.textSecondary,
+                  fontSize: 9,
+                }}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <span
+            style={{
+              fontSize: 9,
+              color: colors.textMuted,
+              letterSpacing: '0.04em',
+            }}
+          >
+            {template.viewCount} VIEW{template.viewCount === 1 ? '' : 'S'}
+          </span>
+          <div style={{ flex: 1 }} />
           <CardButton onClick={onPreview} label="PREVIEW" disabled={using} />
-          <CardButton onClick={onUse} label={using ? '...' : 'USE'} primary disabled={using} />
+          <CardButton
+            onClick={onUse}
+            label={using ? '...' : 'USE TEMPLATE'}
+            primary
+            disabled={using}
+          />
         </div>
       </div>
     </div>
