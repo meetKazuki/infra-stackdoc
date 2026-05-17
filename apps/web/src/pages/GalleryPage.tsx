@@ -8,6 +8,7 @@ const colors = {
   border: 'rgba(0, 229, 255, 0.12)',
   textPrimary: '#e0f7fa',
   textSecondary: '#78909c',
+  textMuted: '#455a64',
 }
 
 const fonts = {
@@ -68,6 +69,16 @@ export const GalleryPage: React.FC = () => {
           >
             GALLERY
           </h1>
+          <span
+            style={{
+              color: colors.textMuted,
+              fontSize: 11,
+              fontWeight: 400,
+              letterSpacing: 0,
+            }}
+          >
+            // what the community is running
+          </span>
         </div>
         <UserMenu />
       </div>
