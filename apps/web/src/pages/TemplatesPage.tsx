@@ -41,7 +41,7 @@ export const TemplatesPage: React.FC = () => {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/editor')}
             style={{
               padding: '6px 12px',
               background: 'transparent',

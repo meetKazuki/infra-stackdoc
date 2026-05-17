@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { EditorPage } from './pages/EditorPage'
 import { fetchConfig } from './lib/api'
 import { GalleryPage } from './pages/GalleryPage'
+import { LandingPage } from './pages/LandingPage'
 import { MyConfigsPage } from './pages/MyConfigsPage'
 import { SharedView } from './pages/SharedViewPage'
 import { TemplatesPage } from './pages/TemplatesPage'
@@ -91,7 +92,8 @@ export const App: React.FC = () => {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<EditorWithState />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/editor" element={<EditorWithState />} />
           <Route path="/s/:slug" element={<SharedView />} />
           <Route path="/edit/:slug" element={<EditOwnConfig />} />
           <Route path="/my-configs" element={<MyConfigsPage />} />
