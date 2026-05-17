@@ -108,7 +108,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   const handleSelect = useCallback((deviceId: string) => {
     if (dragMoved.current) return
     setFocusedNodeId(deviceId)
-    setFocusDepth(0) // selection-only; depth must be opted into via F
+    setFocusDepth(0)
   }, [])
 
   const handleToggleLayer = useCallback((layer: LayerCategory) => {
@@ -165,26 +165,34 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
     return () => window.removeEventListener('keydown', onKey)
   }, [focusedNodeId, readOnly])
 
-  // Auto-fit on graph change
+  // Auto-fit on graph change AND on container size change.
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
 
-    const containerWidth = el.clientWidth
-    const containerHeight = el.clientHeight
-    const headerHeight = 44
-    const padding = 40
-    const availableWidth = containerWidth - padding * 2
-    const availableHeight = containerHeight - headerHeight - padding * 2
-    const scaleX = availableWidth / graph.bounds.width
-    const scaleY = availableHeight / graph.bounds.height
-    const scale = Math.min(scaleX, scaleY, 1)
-    const scaledWidth = graph.bounds.width * scale
-    const scaledHeight = graph.bounds.height * scale
-    const x = (containerWidth - scaledWidth) / 2
-    const y = headerHeight + (availableHeight - scaledHeight) / 2 + padding
-    setTransform({ x, y, scale })
-  }, [graph])
+    const fit = () => {
+      const containerWidth = el.clientWidth
+      const containerHeight = el.clientHeight
+      if (containerWidth === 0 || containerHeight === 0) return
+      const headerHeight = readOnly ? 0 : 44
+      const padding = 40
+      const availableWidth = containerWidth - padding * 2
+      const availableHeight = containerHeight - headerHeight - padding * 2
+      const scaleX = availableWidth / graph.bounds.width
+      const scaleY = availableHeight / graph.bounds.height
+      const scale = Math.min(scaleX, scaleY, 1)
+      const scaledWidth = graph.bounds.width * scale
+      const scaledHeight = graph.bounds.height * scale
+      const x = (containerWidth - scaledWidth) / 2
+      const y = headerHeight + (availableHeight - scaledHeight) / 2 + padding
+      setTransform({ x, y, scale })
+    }
+
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [graph, readOnly])
 
   // Non-passive wheel zoom
   useEffect(() => {
@@ -451,76 +459,78 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
       }}
     >
       {/* Header */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 44,
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 20px',
-          gap: 12,
-          background: 'rgba(8,15,30,0.88)',
-          backdropFilter: 'blur(8px)',
-          borderBottom: `1px solid ${colors.border}`,
-          zIndex: 10,
-          fontFamily: fonts.mono,
-        }}
-      >
-        <span style={{ color: colors.textPrimary, fontWeight: 700, fontSize: 13 }}>
-          {graph.meta.title}
-        </span>
-        {graph.meta.subtitle && (
-          <span style={{ color: colors.textMuted, fontSize: 10 }}>{graph.meta.subtitle}</span>
-        )}
-        {(graph.meta.tags ?? []).map((tag: string) => (
-          <span
-            key={tag}
-            style={{
-              fontSize: 8,
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: colors.green,
-              background: colors.greenDim,
-              borderRadius: 3,
-              padding: '2px 8px',
-            }}
-          >
-            {tag}
+      {!readOnly && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 44,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 20px',
+            gap: 12,
+            background: 'rgba(8,15,30,0.88)',
+            backdropFilter: 'blur(8px)',
+            borderBottom: `1px solid ${colors.border}`,
+            zIndex: 10,
+            fontFamily: fonts.mono,
+          }}
+        >
+          <span style={{ color: colors.textPrimary, fontWeight: 700, fontSize: 13 }}>
+            {graph.meta.title}
           </span>
-        ))}
-        <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          {legend.map((l) => (
-            <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <svg width={24} height={4}>
-                <line
-                  x1={0}
-                  y1={2}
-                  x2={24}
-                  y2={2}
-                  stroke={l.color}
-                  strokeWidth={1.5}
-                  strokeDasharray={l.dash || 'none'}
-                />
-              </svg>
-              <span
-                style={{
-                  fontSize: 8,
-                  color: colors.textMuted,
-                  letterSpacing: '0.06em',
-                  fontWeight: 600,
-                }}
-              >
-                {l.label}
-              </span>
-            </div>
+          {graph.meta.subtitle && (
+            <span style={{ color: colors.textMuted, fontSize: 10 }}>{graph.meta.subtitle}</span>
+          )}
+          {(graph.meta.tags ?? []).map((tag: string) => (
+            <span
+              key={tag}
+              style={{
+                fontSize: 8,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: colors.green,
+                background: colors.greenDim,
+                borderRadius: 3,
+                padding: '2px 8px',
+              }}
+            >
+              {tag}
+            </span>
           ))}
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            {legend.map((l) => (
+              <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <svg width={24} height={4}>
+                  <line
+                    x1={0}
+                    y1={2}
+                    x2={24}
+                    y2={2}
+                    stroke={l.color}
+                    strokeWidth={1.5}
+                    strokeDasharray={l.dash || 'none'}
+                  />
+                </svg>
+                <span
+                  style={{
+                    fontSize: 8,
+                    color: colors.textMuted,
+                    letterSpacing: '0.06em',
+                    fontWeight: 600,
+                  }}
+                >
+                  {l.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* density toolbar (anchored top-right under the header). */}
       {!readOnly && (
