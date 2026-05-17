@@ -147,7 +147,7 @@ export const MyConfigs: React.FC = () => {
         <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>∅</div>
         <div style={{ marginBottom: 16 }}>You haven&rsquo;t saved any configs yet.</div>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/editor')}
           style={{
             padding: '8px 16px',
             background: 'transparent',
@@ -171,7 +171,7 @@ export const MyConfigs: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <SubHeader kickerText={kickerText} onNew={() => navigate('/')} />
+      <SubHeader kickerText={kickerText} onNew={() => navigate('/editor')} />
       {configs.map((config) => (
         <ConfigCard
           key={config.slug}

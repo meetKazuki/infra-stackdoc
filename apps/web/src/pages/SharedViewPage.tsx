@@ -144,7 +144,7 @@ export const SharedView: React.FC = () => {
         <div style={{ fontSize: 32, opacity: 0.4 }}>404</div>
         <div>{error || 'Config not found'}</div>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/editor')}
           style={{
             padding: '8px 16px',
             background: 'transparent',
