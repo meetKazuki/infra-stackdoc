@@ -7,8 +7,6 @@ import { buildDeviceMap } from '../lib/device'
 import { UserMenu } from '../components/UserMenu'
 import SAMPLE_YAML from '../sample.yaml?raw'
 
-// ── Subcomponents (single-use, Landing-specific; colocated per handoff) ──
-
 const NavLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => {
   const navigate = useNavigate()
   return (
@@ -91,9 +89,6 @@ const PreviewFrame: React.FC = () => {
     try {
       const result = parse(SAMPLE_YAML)
       if (!result.ok) {
-        // Surface the failure to the console so a broken seed doesn't
-        // silently degrade the landing page. The visual fallback below
-        // keeps the page intact.
         console.warn(
           'LandingPage: seed YAML failed to parse — preview will show empty fallback.',
           result.errors,
@@ -112,23 +107,16 @@ const PreviewFrame: React.FC = () => {
   }, [])
 
   if (errored || !graph) {
-    // Empty box fallback — the surrounding right-column already has the
-    // border + background, so nothing more is needed here.
     return <div style={{ width: '100%', height: '100%' }} />
   }
 
   return (
     <div
       style={{
-        // The outer right-column is 540px tall × flex width. We scale the
-        // inner canvas to 0.45 and compensate its un-scaled size to
-        // 100% / 0.45 (≈ 222%) so the scaled result fills the frame.
         transform: 'scale(0.45)',
         transformOrigin: 'top left',
         width: 'calc(100% / 0.45)',
         height: 'calc(100% / 0.45)',
-        // Belt-and-braces with readOnly — the wrapper itself swallows any
-        // stray pointer event the canvas might emit.
         pointerEvents: 'none',
       }}
     >

@@ -169,11 +169,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    // Use clientWidth/clientHeight rather than getBoundingClientRect: the
-    // former returns the un-transformed CSS layout box, which is what we
-    // want when an ancestor (e.g. the landing-page preview's scale
-    // wrapper) applies a CSS transform. getBoundingClientRect would
-    // return the post-transform size and yield a tiny, off-centre fit.
+
     const containerWidth = el.clientWidth
     const containerHeight = el.clientHeight
     const headerHeight = 44
@@ -288,8 +284,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
     }
     const rect = el.getBoundingClientRect()
     setTransform((t) => {
-      // Pivot on the viewport centre so the user's mental map of
-      // "where am I looking" survives the zoom change.
       const cx = rect.width / 2
       const cy = rect.height / 2
       return {
@@ -376,7 +370,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
           }
         }
         const representativeType = resolveSupernodeIcon(members)
-        // Supernode is "in focus" if any of its members would be.
         const isInFocus = members.some((d) => focusedNodeIds.has(d.id))
         return {
           pg,
@@ -568,10 +561,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
           style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
         >
           {graph.groups.map((g, i) => {
-            // Only top-level groups (depth === 0) get a collapse
-            // affordance. Nested-subgroup collapse is intentionally
-            // out of scope for 2d — it'd compound the re-routing
-            // edge cases without proportionate benefit at this stage.
             const isTopLevel = (g.depth ?? 0) === 0
             const isCollapsed = collapsedGroupIds.has(g.group.id)
             return (
