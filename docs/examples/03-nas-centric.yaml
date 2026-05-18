@@ -167,7 +167,6 @@ connections:
     type: ethernet
     speed: 1G
 
-  # 2× 10G LAG to TrueNAS — common topology for storage uplinks
   - from: switch-10g
     to: truenas
     fromPort: "SFP1"
