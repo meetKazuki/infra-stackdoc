@@ -3,7 +3,7 @@
 Document your homelab as YAML. Render it as a live topology.
 
 [![CI](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/ci.yml/badge.svg)](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/ci.yml)
-[![Release](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/release.yml/badge.svg)](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/release.yml)
+[![Release](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/release-please.yml/badge.svg)](https://github.com/meetKazuki/infra-stackdoc/actions/workflows/release-please.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ![Homelab StackDoc Screenshot](docs/homelab-topology-screenshot.png)
