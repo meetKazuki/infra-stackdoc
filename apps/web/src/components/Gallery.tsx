@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError, fetchGallery } from '../lib/api'
 import { FatalError } from './FatalError'
+import { MiniDots } from './MiniDots'
 import type { GallerySort, GallerySummary } from '../lib/api.types'
 
 const colors = {
@@ -32,6 +33,24 @@ function formatDate(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+const GALLERY_COLOURS = [
+  '#00e5ff', // cyan
+  '#00e676', // green
+  '#ffab00', // amber
+  '#d500f9', // magenta
+  '#ff5252', // coral
+  '#ffd600', // yellow
+] as const
+
+function slugToColour(slug: string): string {
+  let hash = 2166136261
+  for (let i = 0; i < slug.length; i++) {
+    hash ^= slug.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return GALLERY_COLOURS[Math.abs(hash) % GALLERY_COLOURS.length]
 }
 
 export const Gallery: React.FC = () => {
@@ -302,7 +321,7 @@ const GalleryCard: React.FC<{
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        padding: 16,
+        padding: 0,
         background: colors.cardBackground,
         border: `1px solid ${hovered ? colors.borderHover : colors.border}`,
         borderRadius: 8,
@@ -311,68 +330,153 @@ const GalleryCard: React.FC<{
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
-        gap: 8,
+        overflow: 'hidden',
       }}
     >
       <div
         style={{
-          color: colors.textPrimary,
-          fontSize: 14,
-          fontWeight: 600,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          position: 'relative',
+          height: 110,
+          background: '#080f1e',
+          borderBottom: `1px solid ${colors.border}`,
+          flexShrink: 0,
         }}
       >
-        {item.title}
+        <MiniDots color={slugToColour(item.slug)} />
+        <CounterOverlay views={item.viewCount} forks={item.forkCount} />
       </div>
 
-      <div
-        style={{
-          color: colors.textMuted,
-          fontSize: 10,
-          display: 'flex',
-          gap: 10,
-          flexWrap: 'wrap',
-        }}
-      >
-        {item.author && <span>@{item.author.username}</span>}
-        <span>
-          {item.viewCount} view{item.viewCount !== 1 ? 's' : ''}
-        </span>
-        <span>
-          {item.forkCount} fork{item.forkCount !== 1 ? 's' : ''}
-        </span>
-        <span>{formatDate(item.createdAt)}</span>
-      </div>
-
-      {item.tags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {item.tags.map((t) => {
-            const isActive = activeTag === t
-            return (
-              <span
-                key={t}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onTagClick(t)
-                }}
-                style={{
-                  padding: '2px 8px',
-                  background: isActive ? `${colors.primary}20` : 'rgba(0, 229, 255, 0.06)',
-                  border: `1px solid ${isActive ? colors.primary : colors.border}`,
-                  borderRadius: 10,
-                  color: isActive ? colors.primary : colors.textSecondary,
-                  fontSize: 9,
-                  cursor: 'pointer',
-                }}
-              >
-                {t}
-              </span>
-            )
-          })}
+      <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div
+          style={{
+            color: colors.textPrimary,
+            fontSize: 14,
+            fontWeight: 600,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {item.title}
         </div>
-      )}
+
+        <div
+          style={{
+            color: colors.textMuted,
+            fontSize: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          {item.author && <AuthorAvatar username={item.author.username} />}
+          {item.author && <span>@{item.author.username}</span>}
+          <span>{formatDate(item.createdAt)}</span>
+        </div>
+
+        {item.tags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {item.tags.map((t) => {
+              const isActive = activeTag === t
+              return (
+                <span
+                  key={t}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onTagClick(t)
+                  }}
+                  style={{
+                    padding: '2px 8px',
+                    background: isActive ? `${colors.primary}20` : 'rgba(0, 229, 255, 0.06)',
+                    border: `1px solid ${isActive ? colors.primary : colors.border}`,
+                    borderRadius: 10,
+                    color: isActive ? colors.primary : colors.textSecondary,
+                    fontSize: 9,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t}
+                </span>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
+
+const CounterOverlay: React.FC<{
+  views: number
+  forks: number
+}> = ({ views, forks }) => (
+  <div
+    style={{
+      position: 'absolute',
+      top: 6,
+      right: 6,
+      display: 'flex',
+      gap: 6,
+      pointerEvents: 'none',
+    }}
+  >
+    <CounterChip icon="eye" value={views} />
+    <CounterChip icon="fork" value={forks} />
+  </div>
+)
+
+const CounterChip: React.FC<{
+  icon: 'eye' | 'fork'
+  value: number
+}> = ({ icon, value }) => (
+  <span
+    aria-label={`${value} ${icon === 'eye' ? 'views' : 'forks'}`}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 3,
+      padding: '2px 6px',
+      background: 'rgba(8, 15, 30, 0.75)',
+      border: `1px solid ${colors.border}`,
+      borderRadius: 3,
+      fontSize: 9,
+      color: colors.textSecondary,
+      letterSpacing: '0.06em',
+    }}
+  >
+    {icon === 'eye' ? (
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5C21.3 7.6 17 4.5 12 4.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" />
+      </svg>
+    ) : (
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 3a3 3 0 00-1 5.83v6.34a3.001 3.001 0 102 0V15a2 2 0 002-2V9h3.17a3.001 3.001 0 100-2H9v6a4 4 0 01-4 4v.17A3.001 3.001 0 006 3z" />
+      </svg>
+    )}
+    {value}
+  </span>
+)
+
+const AuthorAvatar: React.FC<{ username: string }> = ({ username }) => (
+  <div
+    aria-hidden
+    style={{
+      width: 18,
+      height: 18,
+      borderRadius: '50%',
+      background: 'rgba(0, 229, 255, 0.08)',
+      border: `1px solid ${colors.border}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 8,
+      color: colors.primary,
+      fontWeight: 700,
+      letterSpacing: 0,
+      flexShrink: 0,
+    }}
+  >
+    {username.slice(0, 2).toUpperCase()}
+  </div>
+)

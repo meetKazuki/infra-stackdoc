@@ -1,0 +1,198 @@
+meta:
+  title: NAS-Centric Homelab
+  subtitle: TrueNAS server with media and backup services
+  tags:
+    - TRUENAS
+    - STORAGE
+    - 10G
+
+networks:
+  - id: lan
+    name: Home LAN
+    subnet: 192.168.1.0/24
+  - id: storage
+    name: Storage Network
+    subnet: 10.0.0.0/24
+    vlan: 100
+
+groups:
+  - id: infra
+    name: Infrastructure
+    style: dashed
+    color: "#00e5ff"
+  - id: edge
+    name: Edge
+    parent: infra
+    style: solid
+    color: "#00e5ff"
+  - id: storage-zone
+    name: Storage Tier
+    parent: infra
+    style: solid
+    color: "#00e676"
+  - id: clients
+    name: Client Devices
+    style: dashed
+    color: "#d500f9"
+
+devices:
+  - id: router
+    name: pfsense
+    type: firewall
+    ip: 192.168.1.1
+    network: lan
+    group: edge
+    tags:
+      - PFSENSE
+    interfaces:
+      ethernet:
+        count: 4
+        speed: 1G
+        ports:
+          - { label: WAN }
+          - { label: LAN }
+          - { label: OPT1 }
+          - { label: OPT2 }
+
+  - id: switch-10g
+    name: switch-10g
+    type: switch
+    ip: 192.168.1.2
+    network: lan
+    group: edge
+    tags:
+      - 10G
+    interfaces:
+      sfp:
+        count: 4
+        speed: 10G
+        ports:
+          - { label: "SFP1" }
+          - { label: "SFP2" }
+          - { label: "SFP3" }
+          - { label: "SFP4" }
+      ethernet:
+        count: 8
+        speed: 1G
+
+  - id: truenas
+    name: truenas-core
+    type: nas
+    ip: 10.0.0.10
+    network: storage
+    group: storage-zone
+    tags:
+      - TRUENAS SCALE
+      - 32 TB RAW
+    specs:
+      cpu: Intel Xeon E-2336
+      ram: 64 GB ECC
+      storage: 6× 8 TB HDD (RAIDZ2) + 2× 1 TB NVMe (L2ARC)
+      os: TrueNAS SCALE 24.04
+    interfaces:
+      sfp:
+        count: 2
+        speed: 10G
+        ports:
+          - { label: "ETH0" }
+          - { label: "ETH1" }
+    services:
+      - name: SMB
+        port: 445
+        runtime: native
+      - name: NFS
+        port: 2049
+        runtime: native
+      - name: Plex
+        port: 32400
+        runtime: docker
+      - name: Sonarr
+        port: 8989
+        runtime: docker
+      - name: Radarr
+        port: 7878
+        runtime: docker
+      - name: qBittorrent
+        port: 8080
+        runtime: docker
+
+  - id: backup-nas
+    name: backup-nas
+    type: nas
+    ip: 10.0.0.11
+    network: storage
+    group: storage-zone
+    tags:
+      - COLD BACKUP
+    specs:
+      storage: 4× 12 TB HDD (RAIDZ1)
+      os: TrueNAS SCALE 24.04
+    interfaces:
+      ethernet:
+        count: 1
+        speed: 2.5G
+
+  - id: workstation
+    name: workstation
+    type: desktop
+    ip: 192.168.1.100
+    network: lan
+    group: clients
+    specs:
+      cpu: AMD Ryzen 9 7900X
+      ram: 64 GB
+      os: Linux Mint
+    interfaces:
+      sfp:
+        count: 1
+        speed: 10G
+
+  - id: laptop
+    name: laptop
+    type: laptop
+    ip: 192.168.1.101
+    network: lan
+    group: clients
+    interfaces:
+      wifi:
+        bands:
+          - 5 GHz
+          - 6 GHz
+        standard: WiFi 6E
+
+connections:
+  - from: router
+    to: switch-10g
+    fromPort: LAN
+    type: ethernet
+    speed: 1G
+
+  - from: switch-10g
+    to: truenas
+    fromPort: "SFP1"
+    toPort: "ETH0"
+    bundle: nas-lag
+    type: fiber
+    speed: 10G
+  - from: switch-10g
+    to: truenas
+    fromPort: "SFP2"
+    toPort: "ETH1"
+    bundle: nas-lag
+    type: fiber
+    speed: 10G
+
+  - from: switch-10g
+    to: backup-nas
+    type: ethernet
+    speed: 2.5G
+
+  - from: switch-10g
+    to: workstation
+    fromPort: "SFP3"
+    type: fiber
+    speed: 10G
+
+  - from: switch-10g
+    to: laptop
+    type: wifi

@@ -24,6 +24,7 @@ interface TopologyCanvasProps {
   graph: PositionedGraph
   deviceMap: Map<string, Device>
   connections: Connection[]
+  readOnly?: boolean
 }
 
 interface Transform {
@@ -35,10 +36,13 @@ interface Transform {
 const CLICK_VS_DRAG_PX = 4
 const MINIMAP_MIN_VIEWPORT_PX = 800
 
+const noop = () => {}
+
 export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   graph,
   deviceMap,
   connections,
+  readOnly = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [transform, setTransform] = useState<Transform>({ x: 0, y: 0, scale: 1 })
@@ -104,7 +108,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   const handleSelect = useCallback((deviceId: string) => {
     if (dragMoved.current) return
     setFocusedNodeId(deviceId)
-    setFocusDepth(0) // selection-only; depth must be opted into via F
+    setFocusDepth(0)
   }, [])
 
   const handleToggleLayer = useCallback((layer: LayerCategory) => {
@@ -137,6 +141,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
   // F + ESC key handling.
   useEffect(() => {
+    if (readOnly) return
     const onKey = (e: KeyboardEvent) => {
       // Don't hijack keys when the user is typing into a form field.
       const target = e.target as HTMLElement | null
@@ -158,28 +163,40 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [focusedNodeId])
+  }, [focusedNodeId, readOnly])
 
-  // Auto-fit on graph change
+  // Auto-fit on graph change AND on container size change.
   useEffect(() => {
-    if (!containerRef.current) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const headerHeight = 44
-    const padding = 40
-    const availableWidth = rect.width - padding * 2
-    const availableHeight = rect.height - headerHeight - padding * 2
-    const scaleX = availableWidth / graph.bounds.width
-    const scaleY = availableHeight / graph.bounds.height
-    const scale = Math.min(scaleX, scaleY, 1)
-    const scaledWidth = graph.bounds.width * scale
-    const scaledHeight = graph.bounds.height * scale
-    const x = (rect.width - scaledWidth) / 2
-    const y = headerHeight + (availableHeight - scaledHeight) / 2 + padding
-    setTransform({ x, y, scale })
-  }, [graph])
+    const el = containerRef.current
+    if (!el) return
+
+    const fit = () => {
+      const containerWidth = el.clientWidth
+      const containerHeight = el.clientHeight
+      if (containerWidth === 0 || containerHeight === 0) return
+      const headerHeight = readOnly ? 0 : 44
+      const padding = 40
+      const availableWidth = containerWidth - padding * 2
+      const availableHeight = containerHeight - headerHeight - padding * 2
+      const scaleX = availableWidth / graph.bounds.width
+      const scaleY = availableHeight / graph.bounds.height
+      const scale = Math.min(scaleX, scaleY, 1)
+      const scaledWidth = graph.bounds.width * scale
+      const scaledHeight = graph.bounds.height * scale
+      const x = (containerWidth - scaledWidth) / 2
+      const y = headerHeight + (availableHeight - scaledHeight) / 2 + padding
+      setTransform({ x, y, scale })
+    }
+
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [graph, readOnly])
 
   // Non-passive wheel zoom
   useEffect(() => {
+    if (readOnly) return
     const el = containerRef.current
     if (!el) return
     const handleWheel = (e: WheelEvent) => {
@@ -199,7 +216,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
     }
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
-  }, [])
+  }, [readOnly])
 
   // Pan
   const onMouseDown = useCallback(
@@ -275,8 +292,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
     }
     const rect = el.getBoundingClientRect()
     setTransform((t) => {
-      // Pivot on the viewport centre so the user's mental map of
-      // "where am I looking" survives the zoom change.
       const cx = rect.width / 2
       const cy = rect.height / 2
       return {
@@ -363,7 +378,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
           }
         }
         const representativeType = resolveSupernodeIcon(members)
-        // Supernode is "in focus" if any of its members would be.
         const isInFocus = members.some((d) => focusedNodeIds.has(d.id))
         return {
           pg,
@@ -430,110 +444,116 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
-      onMouseLeave={onMouseUp}
+      onMouseDown={readOnly ? undefined : onMouseDown}
+      onMouseMove={readOnly ? undefined : onMouseMove}
+      onMouseUp={readOnly ? undefined : onMouseUp}
+      onMouseLeave={readOnly ? undefined : onMouseUp}
       style={{
         width: '100%',
         height: '100%',
         overflow: 'hidden',
         background: colors.background,
-        cursor: dragging ? 'grabbing' : 'grab',
+        cursor: readOnly ? 'default' : dragging ? 'grabbing' : 'grab',
         position: 'relative',
         userSelect: 'none',
       }}
     >
       {/* Header */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 44,
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 20px',
-          gap: 12,
-          background: 'rgba(8,15,30,0.88)',
-          backdropFilter: 'blur(8px)',
-          borderBottom: `1px solid ${colors.border}`,
-          zIndex: 10,
-          fontFamily: fonts.mono,
-        }}
-      >
-        <span style={{ color: colors.textPrimary, fontWeight: 700, fontSize: 13 }}>
-          {graph.meta.title}
-        </span>
-        {graph.meta.subtitle && (
-          <span style={{ color: colors.textMuted, fontSize: 10 }}>{graph.meta.subtitle}</span>
-        )}
-        {(graph.meta.tags ?? []).map((tag: string) => (
-          <span
-            key={tag}
-            style={{
-              fontSize: 8,
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: colors.green,
-              background: colors.greenDim,
-              borderRadius: 3,
-              padding: '2px 8px',
-            }}
-          >
-            {tag}
+      {!readOnly && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 44,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 20px',
+            gap: 12,
+            background: 'rgba(8,15,30,0.88)',
+            backdropFilter: 'blur(8px)',
+            borderBottom: `1px solid ${colors.border}`,
+            zIndex: 10,
+            fontFamily: fonts.mono,
+          }}
+        >
+          <span style={{ color: colors.textPrimary, fontWeight: 700, fontSize: 13 }}>
+            {graph.meta.title}
           </span>
-        ))}
-        <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          {legend.map((l) => (
-            <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <svg width={24} height={4}>
-                <line
-                  x1={0}
-                  y1={2}
-                  x2={24}
-                  y2={2}
-                  stroke={l.color}
-                  strokeWidth={1.5}
-                  strokeDasharray={l.dash || 'none'}
-                />
-              </svg>
-              <span
-                style={{
-                  fontSize: 8,
-                  color: colors.textMuted,
-                  letterSpacing: '0.06em',
-                  fontWeight: 600,
-                }}
-              >
-                {l.label}
-              </span>
-            </div>
+          {graph.meta.subtitle && (
+            <span style={{ color: colors.textMuted, fontSize: 10 }}>{graph.meta.subtitle}</span>
+          )}
+          {(graph.meta.tags ?? []).map((tag: string) => (
+            <span
+              key={tag}
+              style={{
+                fontSize: 8,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: colors.green,
+                background: colors.greenDim,
+                borderRadius: 3,
+                padding: '2px 8px',
+              }}
+            >
+              {tag}
+            </span>
           ))}
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            {legend.map((l) => (
+              <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <svg width={24} height={4}>
+                  <line
+                    x1={0}
+                    y1={2}
+                    x2={24}
+                    y2={2}
+                    stroke={l.color}
+                    strokeWidth={1.5}
+                    strokeDasharray={l.dash || 'none'}
+                  />
+                </svg>
+                <span
+                  style={{
+                    fontSize: 8,
+                    color: colors.textMuted,
+                    letterSpacing: '0.06em',
+                    fontWeight: 600,
+                  }}
+                >
+                  {l.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* density toolbar (anchored top-right under the header). */}
-      <DensityToolbar
-        enabledLayers={enabledLayers}
-        onToggleLayer={handleToggleLayer}
-        zoomPercent={Math.round(zoom * 100)}
-        onSetZoom={handleSetZoomPercent}
-        focusActive={focusActive}
-        onFocus={handleFocusToggle}
-      />
+      {!readOnly && (
+        <DensityToolbar
+          enabledLayers={enabledLayers}
+          onToggleLayer={handleToggleLayer}
+          zoomPercent={Math.round(zoom * 100)}
+          onSetZoom={handleSetZoomPercent}
+          focusActive={focusActive}
+          onFocus={handleFocusToggle}
+        />
+      )}
 
       {/* Controls */}
-      <CanvasControls
-        onZoomIn={onZoomIn}
-        onZoomOut={onZoomOut}
-        onFitToScreen={fitToScreen}
-        onResetView={resetView}
-        scale={transform.scale}
-      />
+      {!readOnly && (
+        <CanvasControls
+          onZoomIn={onZoomIn}
+          onZoomOut={onZoomOut}
+          onFitToScreen={fitToScreen}
+          onResetView={resetView}
+          scale={transform.scale}
+        />
+      )}
 
       {/* Canvas */}
       <div
@@ -551,10 +571,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
           style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
         >
           {graph.groups.map((g, i) => {
-            // Only top-level groups (depth === 0) get a collapse
-            // affordance. Nested-subgroup collapse is intentionally
-            // out of scope for 2d — it'd compound the re-routing
-            // edge cases without proportionate benefit at this stage.
             const isTopLevel = (g.depth ?? 0) === 0
             const isCollapsed = collapsedGroupIds.has(g.group.id)
             return (
@@ -638,16 +654,16 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               key={node.device.id}
               node={node}
               originalDevice={original ?? node.device}
-              onChildClick={handleChildClick}
+              onChildClick={readOnly ? noop : handleChildClick}
               portAssignments={graph.portAssignments.get(node.device.id) ?? []}
               portEnumeration={graph.portEnumerations.get(node.device.id) ?? []}
-              onPortHover={handlePortHover}
+              onPortHover={readOnly ? undefined : handlePortHover}
               dimmed={isDimmed}
               focused={isFocused}
               zoomScale={zoom}
               showLabel={showLabelFor.get(node.device.id) ?? true}
-              onSelect={handleSelect}
-              onOpenDetail={handleOpenDetail}
+              onSelect={readOnly ? undefined : handleSelect}
+              onOpenDetail={readOnly ? undefined : handleOpenDetail}
             />
           )
         })}
@@ -662,7 +678,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               count={count}
               representativeType={representativeType}
               accentColor={pg.group.color ?? colors.primary}
-              onExpand={() => handleToggleCollapse(pg.group.id)}
+              onExpand={readOnly ? noop : () => handleToggleCollapse(pg.group.id)}
               dimmed={focusDepth > 0 && !isInFocus}
               focused={isFocusedDirectly}
             />
@@ -671,7 +687,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
       </div>
 
       {/* Minimap — hidden below 800px viewport width. */}
-      {containerSize.width >= MINIMAP_MIN_VIEWPORT_PX && containerSize.width > 0 && (
+      {!readOnly && containerSize.width >= MINIMAP_MIN_VIEWPORT_PX && containerSize.width > 0 && (
         <Minimap
           graph={graph}
           transform={transform}

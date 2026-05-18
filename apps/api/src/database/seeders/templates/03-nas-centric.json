@@ -1,0 +1,7 @@
+{
+  "slug": "nas-centric",
+  "title": "NAS-Centric Homelab",
+  "description": "TrueNAS SCALE on Xeon hardware with 32 TB raw RAIDZ2, hosting Plex and the *arr stack, with a 10G client workstation.",
+  "category": "storage",
+  "tags": ["TRUENAS", "STORAGE", "10G"]
+}

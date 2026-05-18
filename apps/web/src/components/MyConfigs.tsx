@@ -26,6 +26,34 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
+type LEDTone = 'green' | 'amber'
+
+function visibilityToLEDTone(visibility: string): LEDTone {
+  return visibility === 'public' ? 'green' : 'amber'
+}
+
+function visibilityColor(visibility: string): string {
+  if (visibility === 'public') return '#00e676'
+  if (visibility === 'private') return '#ffab00'
+  if (visibility === 'unlisted') return '#78909c'
+  return '#78909c'
+}
+
+const ledStyle = (tone: LEDTone): React.CSSProperties => ({
+  width: 6,
+  height: 6,
+  borderRadius: '50%',
+  background: tone === 'green' ? '#00e676' : '#ffab00',
+  boxShadow: tone === 'green' ? '0 0 6px rgba(0, 230, 118, 0.6)' : '0 0 6px rgba(255, 171, 0, 0.6)',
+  flexShrink: 0,
+})
+
+function buildKickerText(diagramCount: number, totalViews: number): string {
+  const diagramWord = diagramCount === 1 ? 'diagram' : 'diagrams'
+  const viewWord = totalViews === 1 ? 'view' : 'views'
+  return `// ${diagramCount} ${diagramWord}, ${totalViews} total ${viewWord}`
+}
+
 export const MyConfigs: React.FC = () => {
   const navigate = useNavigate()
   const [configs, setConfigs] = useState<MyConfig[] | null>(null)
@@ -119,7 +147,7 @@ export const MyConfigs: React.FC = () => {
         <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>∅</div>
         <div style={{ marginBottom: 16 }}>You haven&rsquo;t saved any configs yet.</div>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/editor')}
           style={{
             padding: '8px 16px',
             background: 'transparent',
@@ -138,8 +166,12 @@ export const MyConfigs: React.FC = () => {
     )
   }
 
+  const totalViews = configs.reduce((sum, c) => sum + (c.viewCount ?? 0), 0)
+  const kickerText = buildKickerText(configs.length, totalViews)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <SubHeader kickerText={kickerText} onNew={() => navigate('/editor')} />
       {configs.map((config) => (
         <ConfigCard
           key={config.slug}
@@ -150,6 +182,57 @@ export const MyConfigs: React.FC = () => {
           deleting={deletingSlug === config.slug}
         />
       ))}
+    </div>
+  )
+}
+
+const SubHeader: React.FC<{ kickerText: string; onNew: () => void }> = ({ kickerText, onNew }) => {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        paddingBottom: 16,
+        marginBottom: 4,
+      }}
+    >
+      <span
+        style={{
+          color: colors.textMuted,
+          fontSize: 11,
+          fontWeight: 400,
+          letterSpacing: 0,
+        }}
+      >
+        {kickerText}
+      </span>
+      <div style={{ flex: 1 }} />
+      <button
+        onClick={onNew}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          padding: '5px 12px',
+          background: hovered ? 'rgba(0, 229, 255, 0.1)' : 'transparent',
+          border: `1px solid ${colors.primary}`,
+          borderRadius: 5,
+          color: colors.primary,
+          cursor: 'pointer',
+          fontFamily: fonts.mono,
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.06em',
+          transition: 'background 0.15s',
+        }}
+      >
+        <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
+        NEW
+      </button>
     </div>
   )
 }
@@ -187,16 +270,29 @@ const ConfigCard: React.FC<{
         <div style={{ minWidth: 0, flex: 1 }}>
           <div
             style={{
-              color: colors.textPrimary,
-              fontSize: 14,
-              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
               marginBottom: 4,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
             }}
           >
-            {config.title}
+            <span
+              aria-label={`visibility ${config.visibility}`}
+              style={ledStyle(visibilityToLEDTone(config.visibility))}
+            />
+            <div
+              style={{
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: 600,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                minWidth: 0,
+              }}
+            >
+              {config.title}
+            </div>
           </div>
           <div
             style={{
@@ -208,7 +304,17 @@ const ConfigCard: React.FC<{
             }}
           >
             <span>/{config.slug}</span>
-            <span>{config.visibility}</span>
+            <span
+              style={{
+                color: visibilityColor(config.visibility),
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                fontSize: 9,
+              }}
+            >
+              {config.visibility}
+            </span>
             <span>
               {config.viewCount} view{config.viewCount !== 1 ? 's' : ''}
             </span>

@@ -1,0 +1,79 @@
+meta:
+  title: Single-Host Docker
+  subtitle: One mini-PC running a small service stack
+  tags:
+    - DOCKER
+    - SINGLE HOST
+    - BEGINNER
+
+networks:
+  - id: lan
+    name: Home LAN
+    subnet: 192.168.1.0/24
+
+groups:
+  - id: edge
+    name: Network Edge
+    style: dashed
+    color: "#00e5ff"
+  - id: host
+    name: Docker Host
+    style: solid
+    color: "#ffab00"
+
+devices:
+  - id: router
+    name: Home Router
+    type: router
+    ip: 192.168.1.1
+    network: lan
+    group: edge
+    interfaces:
+      ethernet:
+        count: 5
+        speed: 1G
+        ports:
+          - { label: WAN }
+          - { label: LAN1 }
+          - { label: LAN2 }
+          - { label: LAN3 }
+          - { label: LAN4 }
+
+  - id: docker-host
+    name: docker-host
+    type: server
+    ip: 192.168.1.10
+    network: lan
+    group: host
+    specs:
+      cpu: Intel N100
+      ram: 16 GB
+      storage: 1 TB NVMe
+      os: Debian 12
+    interfaces:
+      ethernet:
+        count: 1
+        speed: 2.5G
+    services:
+      - name: Portainer
+        port: 9000
+        runtime: docker
+      - name: Pi-hole
+        port: 80
+        runtime: docker
+      - name: Jellyfin
+        port: 8096
+        runtime: docker
+      - name: Nextcloud
+        port: 8080
+        runtime: docker
+      - name: Uptime Kuma
+        port: 3001
+        runtime: docker
+
+connections:
+  - from: router
+    to: docker-host
+    fromPort: LAN1
+    type: ethernet
+    speed: 2.5G
