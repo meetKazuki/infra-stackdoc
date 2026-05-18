@@ -22,10 +22,6 @@ const fonts = {
   mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
 }
 
-// Category → accent colour. Drives both the thumbnail strokes and the
-// category-tag pill so a card reads as a coherent unit. The 'uncategorised'
-// key handles `category === null` templates; same grey as 'general' since
-// neither has a strong identity to express.
 const categoryColor: Record<TemplateCategory | 'uncategorised', string> = {
   networking: '#00e5ff',
   media: '#d500f9',

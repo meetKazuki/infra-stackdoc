@@ -35,8 +35,6 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-// Visually distinct thumbnail accents. Six colours already used elsewhere in
-// the design system; no new colours introduced for this.
 const GALLERY_COLOURS = [
   '#00e5ff', // cyan
   '#00e676', // green
@@ -46,9 +44,6 @@ const GALLERY_COLOURS = [
   '#ffd600', // yellow
 ] as const
 
-// Simple FNV-1a-style hash; deterministic so the same slug always picks the
-// same palette index. Stable across reloads and across the config's position
-// in the result list.
 function slugToColour(slug: string): string {
   let hash = 2166136261
   for (let i = 0; i < slug.length; i++) {

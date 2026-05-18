@@ -202,8 +202,6 @@ export const SharePanel: React.FC<SharePanelProps> = ({
     }
   }
 
-  // Compute primary-button label/sublabel based on mode and auth state.
-  // `justShared` (2s) provides the brief success tick without clearing publicUrl.
   const primaryLabel = sharing
     ? editingSlug
       ? 'Updating...'
