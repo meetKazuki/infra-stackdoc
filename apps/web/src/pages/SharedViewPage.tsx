@@ -2,10 +2,10 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { parse, layout } from '@homelab-stackdoc/core'
 import { TopologyCanvas } from '@homelab-stackdoc/renderer'
+import { AppNav } from '../components/AppNav'
 import { buildDeviceMap } from '../lib/device'
 import { fetchConfig, forkConfig, deleteConfig } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { UserMenu } from '../components/UserMenu'
 import type { SharedConfig } from '../lib/api.types'
 
 const colors = {
@@ -23,6 +23,35 @@ const colors = {
 
 const fonts = {
   mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
+}
+
+const EditNavButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '5px 12px',
+        background: hovered ? 'rgba(0, 229, 255, 0.1)' : 'transparent',
+        border: `1px solid ${colors.primary}`,
+        borderRadius: 5,
+        color: colors.primary,
+        cursor: 'pointer',
+        fontFamily: fonts.mono,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: '0.06em',
+        transition: 'background 0.15s',
+      }}
+    >
+      EDIT
+    </button>
+  )
 }
 
 export const SharedView: React.FC = () => {
@@ -81,7 +110,7 @@ export const SharedView: React.FC = () => {
   }, [slug, navigate])
 
   const handleOpenInEditor = useCallback(() => {
-    navigate('/', { state: { yaml: config?.yaml } })
+    navigate('/editor', { state: { yaml: config?.yaml } })
   }, [config, navigate])
 
   const handleEditOwnConfig = useCallback(() => {
@@ -104,22 +133,35 @@ export const SharedView: React.FC = () => {
     }
   }, [slug, config, navigate])
 
+  // Nav primary action: owners see EDIT (jumps to /edit/<slug>); visitors get
+  // the AppNav's default NEW DIAGRAM button via the unset prop.
+  const navPrimaryAction = isOwner ? <EditNavButton onClick={handleEditOwnConfig} /> : undefined
+
   // Loading state
   if (loading) {
     return (
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
+          minHeight: '100vh',
           background: colors.background,
           fontFamily: fonts.mono,
-          color: colors.textMuted,
-          fontSize: 13,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        Loading topology...
+        <AppNav />
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.textMuted,
+            fontSize: 13,
+          }}
+        >
+          Loading topology...
+        </div>
       </div>
     )
   }
@@ -129,35 +171,29 @@ export const SharedView: React.FC = () => {
     return (
       <div
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
+          minHeight: '100vh',
           background: colors.background,
           fontFamily: fonts.mono,
-          color: colors.textMuted,
-          fontSize: 13,
-          gap: 16,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <div style={{ fontSize: 32, opacity: 0.4 }}>404</div>
-        <div>{error || 'Config not found'}</div>
-        <button
-          onClick={() => navigate('/editor')}
+        <AppNav />
+        <div
           style={{
-            padding: '8px 16px',
-            background: 'transparent',
-            border: `1px solid ${colors.border}`,
-            borderRadius: 6,
-            color: colors.primary,
-            cursor: 'pointer',
-            fontFamily: fonts.mono,
-            fontSize: 12,
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.textMuted,
+            fontSize: 13,
+            gap: 16,
           }}
         >
-          Go to Editor
-        </button>
+          <div style={{ fontSize: 32, opacity: 0.4 }}>404</div>
+          <div>{error || 'Config not found'}</div>
+        </div>
       </div>
     )
   }
@@ -167,35 +203,44 @@ export const SharedView: React.FC = () => {
     return (
       <div
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
+          minHeight: '100vh',
           background: colors.background,
           fontFamily: fonts.mono,
-          color: colors.textMuted,
-          fontSize: 13,
-          gap: 16,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <div style={{ fontSize: 32, opacity: 0.4 }}>⚠</div>
-        <div>This config has invalid YAML</div>
-        <button
-          onClick={isOwner ? handleEditOwnConfig : handleOpenInEditor}
+        <AppNav primaryAction={navPrimaryAction} />
+        <div
           style={{
-            padding: '8px 16px',
-            background: 'transparent',
-            border: `1px solid ${colors.border}`,
-            borderRadius: 6,
-            color: colors.primary,
-            cursor: 'pointer',
-            fontFamily: fonts.mono,
-            fontSize: 12,
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.textMuted,
+            fontSize: 13,
+            gap: 16,
           }}
         >
-          {isOwner ? 'Edit to Fix' : 'Open in Editor to Fix'}
-        </button>
+          <div style={{ fontSize: 32, opacity: 0.4 }}>⚠</div>
+          <div>This config has invalid YAML</div>
+          <button
+            onClick={isOwner ? handleEditOwnConfig : handleOpenInEditor}
+            style={{
+              padding: '8px 16px',
+              background: 'transparent',
+              border: `1px solid ${colors.border}`,
+              borderRadius: 6,
+              color: colors.primary,
+              cursor: 'pointer',
+              fontFamily: fonts.mono,
+              fontSize: 12,
+            }}
+          >
+            {isOwner ? 'Edit to Fix' : 'Open in Editor to Fix'}
+          </button>
+        </div>
       </div>
     )
   }
@@ -211,6 +256,8 @@ export const SharedView: React.FC = () => {
         flexDirection: 'column',
       }}
     >
+      <AppNav primaryAction={navPrimaryAction} />
+
       {/* Topology canvas — takes remaining vertical space. The canvas's own
           bottom-anchored controls (zoom, fit, reset) now clear the shared
           bottom bar because they're positioned within this flex item, not
@@ -223,19 +270,6 @@ export const SharedView: React.FC = () => {
         }}
       >
         <TopologyCanvas graph={graph} deviceMap={deviceMap} connections={connections} />
-
-        {/* User menu — sits below the canvas top header so the legend keeps
-            its full width. */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 56,
-            right: 16,
-            zIndex: 15,
-          }}
-        >
-          <UserMenu />
-        </div>
       </div>
 
       {/* Bottom bar — shared config info */}

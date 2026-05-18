@@ -3,63 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { parse, layout } from '@homelab-stackdoc/core'
 import { TopologyCanvas, colors, fonts } from '@homelab-stackdoc/renderer'
 import type { PositionedGraph, Device, Connection } from '@homelab-stackdoc/core'
+import { AppNav } from '../components/AppNav'
 import { buildDeviceMap } from '../lib/device'
-import { UserMenu } from '../components/UserMenu'
 import SAMPLE_YAML from '../sample.yaml?raw'
-
-const NavLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => {
-  const navigate = useNavigate()
-  return (
-    <button
-      onClick={() => navigate(to)}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = colors.primary
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = colors.textSecondary
-      }}
-      style={{
-        background: 'transparent',
-        border: 'none',
-        color: colors.textSecondary,
-        fontFamily: fonts.mono,
-        fontSize: 11,
-        letterSpacing: '0.04em',
-        cursor: 'pointer',
-        padding: '4px 0',
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-const ExternalNavLink: React.FC<{ href: string; children: React.ReactNode }> = ({
-  href,
-  children,
-}) => (
-  <a
-    href={href}
-    target="_blank"
-    rel="noopener noreferrer"
-    onMouseEnter={(e) => {
-      e.currentTarget.style.color = colors.primary
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.color = colors.textSecondary
-    }}
-    style={{
-      color: colors.textSecondary,
-      fontFamily: fonts.mono,
-      fontSize: 11,
-      letterSpacing: '0.04em',
-      textDecoration: 'none',
-      padding: '4px 0',
-    }}
-  >
-    {children}
-  </a>
-)
 
 const Badge: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <span
@@ -131,7 +77,6 @@ export const LandingPage: React.FC = () => {
   const navigate = useNavigate()
   const [primaryCtaHovered, setPrimaryCtaHovered] = useState(false)
   const [ghostCtaHovered, setGhostCtaHovered] = useState(false)
-  const [newDiagramHovered, setNewDiagramHovered] = useState(false)
 
   return (
     <div
@@ -142,88 +87,7 @@ export const LandingPage: React.FC = () => {
         fontFamily: fonts.mono,
       }}
     >
-      {/* Nav strip */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 24,
-          padding: '14px 28px',
-          borderBottom: `1px solid ${colors.border}`,
-          background: 'rgba(8, 15, 30, 0.92)',
-          backdropFilter: 'blur(8px)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-        }}
-      >
-        <a
-          href="/"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            textDecoration: 'none',
-            color: colors.textPrimary,
-            fontSize: 13,
-            fontWeight: 700,
-            letterSpacing: '0.04em',
-          }}
-        >
-          <span style={{ color: colors.primary }}>&gt;_</span>
-          stackdoc
-        </a>
-
-        <span
-          style={{
-            padding: '2px 6px',
-            border: `1px solid ${colors.green}40`,
-            borderRadius: 3,
-            color: colors.green,
-            fontSize: 8,
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-          }}
-        >
-          LIVE
-        </span>
-
-        <div style={{ flex: 1 }} />
-
-        <nav style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
-          <NavLink to="/templates">templates</NavLink>
-          <NavLink to="/gallery">gallery</NavLink>
-          <ExternalNavLink href="https://github.com/meetKazuki/infra-stackdoc">
-            github
-          </ExternalNavLink>
-        </nav>
-
-        <button
-          onClick={() => navigate('/editor')}
-          onMouseEnter={() => setNewDiagramHovered(true)}
-          onMouseLeave={() => setNewDiagramHovered(false)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '5px 12px',
-            background: newDiagramHovered ? 'rgba(0, 229, 255, 0.1)' : 'transparent',
-            border: `1px solid ${colors.primary}`,
-            borderRadius: 5,
-            color: colors.primary,
-            cursor: 'pointer',
-            fontFamily: fonts.mono,
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            transition: 'background 0.15s',
-          }}
-        >
-          NEW DIAGRAM
-        </button>
-
-        <UserMenu />
-      </header>
+      <AppNav />
 
       {/* Hero */}
       <main

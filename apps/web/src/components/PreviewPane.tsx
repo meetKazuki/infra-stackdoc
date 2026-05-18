@@ -1,16 +1,13 @@
-import html2canvas from 'html2canvas'
-import React, { useRef, useState, useCallback } from 'react'
+import React from 'react'
 import { TopologyCanvas } from '@homelab-stackdoc/renderer'
 import type { PositionedGraph, ValidationError, Device, Connection } from '@homelab-stackdoc/core'
-import { SharePanel } from './SharePanel'
 
 interface PreviewPaneProps {
   graph: PositionedGraph | null
   errors: ValidationError[]
   deviceMap: Map<string, Device>
   connections: Connection[]
-  yaml: string
-  editingSlug?: string
+  captureRef: React.RefObject<HTMLDivElement>
 }
 
 export const PreviewPane: React.FC<PreviewPaneProps> = ({
@@ -18,35 +15,8 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
   errors,
   deviceMap,
   connections,
-  yaml,
-  editingSlug,
+  captureRef,
 }) => {
-  const captureRef = useRef<HTMLDivElement>(null)
-  const [isExporting, setIsExporting] = useState(false)
-
-  const handleExportPng = useCallback(async () => {
-    if (!captureRef.current || !graph) return
-    setIsExporting(true)
-    try {
-      const canvas = await html2canvas(captureRef.current, {
-        backgroundColor: '#080f1e',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        width: captureRef.current.offsetWidth,
-        height: captureRef.current.offsetHeight,
-      })
-      const link = document.createElement('a')
-      link.download = `homelab-topology-${Date.now()}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
-    } catch (err) {
-      console.error('PNG export failed:', err)
-    } finally {
-      setIsExporting(false)
-    }
-  }, [graph])
-
   if (errors.some((e) => e.severity === 'error') || !graph) {
     return (
       <div
@@ -76,12 +46,6 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
       <div ref={captureRef} style={{ height: '100%' }}>
         <TopologyCanvas graph={graph} deviceMap={deviceMap} connections={connections} />
       </div>
-      <SharePanel
-        yaml={yaml}
-        onExportPng={handleExportPng}
-        isExporting={isExporting}
-        editingSlug={editingSlug}
-      />
     </div>
   )
 }

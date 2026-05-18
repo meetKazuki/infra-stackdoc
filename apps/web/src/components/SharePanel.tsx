@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { createConfig, updateConfig } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -116,6 +116,18 @@ export const SharePanel: React.FC<SharePanelProps> = ({
   const [justShared, setJustShared] = useState(false)
   const [shareResult, setShareResult] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open])
 
   const publicUrl = editingSlug ? `${window.location.origin}/s/${editingSlug}` : shareResult
 
@@ -216,11 +228,10 @@ export const SharePanel: React.FC<SharePanelProps> = ({
 
   return (
     <div
+      ref={wrapperRef}
       style={{
-        position: 'absolute',
-        top: 52,
-        right: 16,
-        zIndex: 20,
+        position: 'relative',
+        display: 'inline-flex',
       }}
     >
       {/* Toggle button */}
@@ -264,6 +275,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({
             position: 'absolute',
             top: 40,
             right: 0,
+            zIndex: 30,
             width: 320,
             padding: 8,
             background: colors.background,
