@@ -1,0 +1,223 @@
+meta:
+  title: Proxmox 3-Node Cluster
+  subtitle: HA virtualization with shared storage and bonded uplinks
+  tags:
+    - PROXMOX
+    - CLUSTER
+    - CEPH
+
+networks:
+  - id: mgmt
+    name: Management
+    subnet: 10.0.10.0/24
+    vlan: 10
+  - id: cluster
+    name: Cluster Sync
+    subnet: 10.0.20.0/24
+    vlan: 20
+  - id: vm-net
+    name: VM Network
+    subnet: 10.0.30.0/24
+    vlan: 30
+
+groups:
+  - id: infra
+    name: Infrastructure
+    style: dashed
+    color: "#00e5ff"
+  - id: pve-cluster
+    name: Proxmox Cluster
+    parent: infra
+    style: solid
+    color: "#ffab00"
+  - id: storage-tier
+    name: Storage
+    parent: infra
+    style: solid
+    color: "#00e676"
+
+devices:
+  - id: core-switch
+    name: core-switch
+    type: switch
+    ip: 10.0.10.1
+    network: mgmt
+    group: infra
+    tags:
+      - 10G
+      - LAYER 3
+    interfaces:
+      sfp:
+        count: 4
+        speed: 10G
+        ports:
+          - { label: "SFP1" }
+          - { label: "SFP2" }
+          - { label: "SFP3" }
+          - { label: "SFP4" }
+      ethernet:
+        count: 24
+        speed: 1G
+
+  - id: pve-1
+    name: pve-1
+    type: hypervisor
+    ip: 10.0.10.11
+    network: mgmt
+    group: pve-cluster
+    specs:
+      cpu: AMD EPYC 7313P
+      ram: 128 GB
+      storage: 2× 1 TB NVMe
+      os: Proxmox VE 8.2
+    interfaces:
+      sfp:
+        count: 2
+        speed: 10G
+        ports:
+          - { label: "ETH0" }
+          - { label: "ETH1" }
+    children:
+      - id: pve-1-pihole
+        name: pihole
+        type: container
+        ip: 10.0.30.10
+        services:
+          - name: Pi-hole
+            port: 80
+            runtime: native
+
+  - id: pve-2
+    name: pve-2
+    type: hypervisor
+    ip: 10.0.10.12
+    network: mgmt
+    group: pve-cluster
+    specs:
+      cpu: AMD EPYC 7313P
+      ram: 128 GB
+      storage: 2× 1 TB NVMe
+      os: Proxmox VE 8.2
+    interfaces:
+      sfp:
+        count: 2
+        speed: 10G
+        ports:
+          - { label: "ETH0" }
+          - { label: "ETH1" }
+    children:
+      - id: pve-2-homeassistant
+        name: home-assistant
+        type: vm
+        ip: 10.0.30.20
+        services:
+          - name: Home Assistant
+            port: 8123
+            runtime: native
+
+  - id: pve-3
+    name: pve-3
+    type: hypervisor
+    ip: 10.0.10.13
+    network: mgmt
+    group: pve-cluster
+    specs:
+      cpu: AMD EPYC 7313P
+      ram: 128 GB
+      storage: 2× 1 TB NVMe
+      os: Proxmox VE 8.2
+    interfaces:
+      sfp:
+        count: 2
+        speed: 10G
+        ports:
+          - { label: "ETH0" }
+          - { label: "ETH1" }
+    children:
+      - id: pve-3-grafana
+        name: grafana
+        type: container
+        ip: 10.0.30.30
+        services:
+          - name: Grafana
+            port: 3000
+            runtime: native
+          - name: Prometheus
+            port: 9090
+            runtime: native
+
+  - id: ceph-osd
+    name: ceph-storage
+    type: nas
+    ip: 10.0.10.20
+    network: mgmt
+    group: storage-tier
+    tags:
+      - CEPH
+      - 48 TB
+    specs:
+      storage: 8× 6 TB HDD + 2× 2 TB NVMe (cache)
+    interfaces:
+      sfp:
+        count: 2
+        speed: 10G
+        ports:
+          - { label: "ETH0" }
+          - { label: "ETH1" }
+
+connections:
+  # Each PVE node has two 10G links to the core switch — one for VM traffic,
+  # one for cluster sync. Both members of a single bonded uplink per host.
+  - from: pve-1
+    to: core-switch
+    fromPort: ETH0
+    toPort: SFP1
+    bundle: pve-1-lag
+    type: fiber
+    speed: 10G
+  - from: pve-1
+    to: core-switch
+    fromPort: ETH1
+    bundle: pve-1-lag
+    type: fiber
+    speed: 10G
+
+  - from: pve-2
+    to: core-switch
+    fromPort: ETH0
+    bundle: pve-2-lag
+    type: fiber
+    speed: 10G
+  - from: pve-2
+    to: core-switch
+    fromPort: ETH1
+    bundle: pve-2-lag
+    type: fiber
+    speed: 10G
+
+  - from: pve-3
+    to: core-switch
+    fromPort: ETH0
+    bundle: pve-3-lag
+    type: fiber
+    speed: 10G
+  - from: pve-3
+    to: core-switch
+    fromPort: ETH1
+    bundle: pve-3-lag
+    type: fiber
+    speed: 10G
+
+  # Ceph storage — also bonded
+  - from: ceph-osd
+    to: core-switch
+    fromPort: ETH0
+    bundle: ceph-lag
+    type: fiber
+    speed: 10G
+  - from: ceph-osd
+    to: core-switch
+    fromPort: ETH1
+    bundle: ceph-lag
+    type: fiber
+    speed: 10G

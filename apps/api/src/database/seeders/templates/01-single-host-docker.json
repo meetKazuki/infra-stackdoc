@@ -1,0 +1,7 @@
+{
+  "slug": "single-host-docker",
+  "title": "Single-Host Docker",
+  "description": "Mini-PC running Portainer, Pi-hole, Jellyfin, and Nextcloud in Docker, connected to a 5-port consumer router.",
+  "category": "virtualization",
+  "tags": ["DOCKER", "SINGLE HOST", "BEGINNER"]
+}

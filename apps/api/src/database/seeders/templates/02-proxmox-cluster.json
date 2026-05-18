@@ -1,0 +1,7 @@
+{
+  "slug": "proxmox-cluster",
+  "title": "Proxmox 3-Node Cluster",
+  "description": "Three Proxmox nodes (EPYC, 128 GB RAM each) with bonded 10G uplinks to a core switch, plus Ceph storage for HA.",
+  "category": "virtualization",
+  "tags": ["PROXMOX", "CLUSTER", "CEPH"]
+}

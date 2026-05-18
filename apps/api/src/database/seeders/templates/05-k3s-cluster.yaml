@@ -1,0 +1,210 @@
+meta:
+  title: k3s Cluster on Mini-PCs
+  subtitle: 3-node Kubernetes cluster with shared NFS storage
+  tags:
+    - KUBERNETES
+    - K3S
+    - GITOPS
+
+networks:
+  - id: lan
+    name: LAN
+    subnet: 192.168.1.0/24
+  - id: cluster
+    name: Cluster Network
+    subnet: 10.42.0.0/16
+
+groups:
+  - id: edge
+    name: Edge
+    style: dashed
+    color: "#00e5ff"
+  - id: k3s-cluster
+    name: k3s Cluster
+    style: solid
+    color: "#ffab00"
+  - id: control-plane
+    name: Control Plane
+    parent: k3s-cluster
+    style: solid
+    color: "#00e5ff"
+  - id: workers
+    name: Worker Nodes
+    parent: k3s-cluster
+    style: solid
+    color: "#00e676"
+  - id: storage-tier
+    name: Storage
+    style: dashed
+    color: "#ffab00"
+
+devices:
+  - id: router
+    name: router
+    type: router
+    ip: 192.168.1.1
+    network: lan
+    group: edge
+    interfaces:
+      ethernet:
+        count: 5
+        speed: 1G
+        ports:
+          - { label: WAN }
+          - { label: LAN1 }
+          - { label: LAN2 }
+          - { label: LAN3 }
+          - { label: LAN4 }
+
+  - id: switch
+    name: switch
+    type: switch
+    ip: 192.168.1.2
+    network: lan
+    group: edge
+    interfaces:
+      ethernet:
+        count: 8
+        speed: 2.5G
+
+  - id: k3s-master
+    name: k3s-master
+    type: server
+    ip: 192.168.1.10
+    network: lan
+    group: control-plane
+    tags:
+      - SERVER
+    specs:
+      cpu: Intel N305
+      ram: 32 GB
+      storage: 512 GB NVMe
+      os: Ubuntu Server 24.04
+    interfaces:
+      ethernet:
+        count: 1
+        speed: 2.5G
+    children:
+      - id: argocd
+        name: argocd
+        type: container
+        services:
+          - name: ArgoCD
+            port: 8080
+            runtime: native
+      - id: traefik
+        name: traefik
+        type: container
+        services:
+          - name: Traefik
+            port: 80
+            runtime: native
+
+  - id: k3s-worker-1
+    name: k3s-worker-1
+    type: server
+    ip: 192.168.1.11
+    network: lan
+    group: workers
+    tags:
+      - AGENT
+    specs:
+      cpu: Intel N305
+      ram: 32 GB
+      storage: 512 GB NVMe
+      os: Ubuntu Server 24.04
+    interfaces:
+      ethernet:
+        count: 1
+        speed: 2.5G
+    children:
+      - id: jellyfin-pod
+        name: jellyfin
+        type: container
+        services:
+          - name: Jellyfin
+            port: 8096
+            runtime: native
+      - id: paperless-pod
+        name: paperless
+        type: container
+        services:
+          - name: Paperless-ngx
+            port: 8000
+            runtime: native
+
+  - id: k3s-worker-2
+    name: k3s-worker-2
+    type: server
+    ip: 192.168.1.12
+    network: lan
+    group: workers
+    tags:
+      - AGENT
+    specs:
+      cpu: Intel N305
+      ram: 32 GB
+      storage: 512 GB NVMe
+      os: Ubuntu Server 24.04
+    interfaces:
+      ethernet:
+        count: 1
+        speed: 2.5G
+    children:
+      - id: prometheus-pod
+        name: prometheus
+        type: container
+        services:
+          - name: Prometheus
+            port: 9090
+            runtime: native
+      - id: grafana-pod
+        name: grafana
+        type: container
+        services:
+          - name: Grafana
+            port: 3000
+            runtime: native
+
+  - id: nfs
+    name: nfs-server
+    type: nas
+    ip: 192.168.1.20
+    network: lan
+    group: storage-tier
+    tags:
+      - PV BACKEND
+    specs:
+      storage: 4× 4 TB HDD (RAID 10)
+    services:
+      - name: NFS
+        port: 2049
+        runtime: native
+    interfaces:
+      ethernet:
+        count: 1
+        speed: 2.5G
+
+connections:
+  - from: router
+    to: switch
+    fromPort: LAN1
+    type: ethernet
+    speed: 1G
+
+  - from: switch
+    to: k3s-master
+    type: ethernet
+    speed: 2.5G
+  - from: switch
+    to: k3s-worker-1
+    type: ethernet
+    speed: 2.5G
+  - from: switch
+    to: k3s-worker-2
+    type: ethernet
+    speed: 2.5G
+  - from: switch
+    to: nfs
+    type: ethernet
+    speed: 2.5G
