@@ -1,0 +1,166 @@
+meta:
+  title: Distributed Homelab with Tailscale
+  subtitle: Local services exposed to remote nodes over mesh VPN
+  tags:
+    - TAILSCALE
+    - DISTRIBUTED
+    - VPN
+
+networks:
+  - id: home-lan
+    name: Home LAN
+    subnet: 192.168.1.0/24
+  - id: remote-lan
+    name: Remote Site LAN
+    subnet: 192.168.5.0/24
+  - id: tailnet
+    name: Tailscale Mesh
+    subnet: 100.64.0.0/10
+
+groups:
+  - id: home-site
+    name: Home Site
+    style: dashed
+    color: "#00e5ff"
+  - id: remote-site
+    name: Remote Site
+    style: dashed
+    color: "#ffab00"
+  - id: vpn-mesh
+    name: Tailscale Mesh
+    style: solid
+    color: "#d500f9"
+
+devices:
+  - id: home-router
+    name: home-router
+    type: router
+    ip: 192.168.1.1
+    network: home-lan
+    group: home-site
+    interfaces:
+      ethernet:
+        count: 5
+        speed: 1G
+        ports:
+          - { label: WAN }
+          - { label: LAN1 }
+          - { label: LAN2 }
+          - { label: LAN3 }
+          - { label: LAN4 }
+
+  - id: home-server
+    name: home-server
+    type: server
+    ip: 192.168.1.10
+    network: home-lan
+    group: home-site
+    specs:
+      cpu: AMD Ryzen 7 5700G
+      ram: 32 GB
+      storage: 2 TB NVMe
+      os: Ubuntu Server 24.04
+    services:
+      - name: Tailscale
+        port: 41641
+        runtime: native
+      - name: Jellyfin
+        port: 8096
+        runtime: docker
+      - name: Vaultwarden
+        port: 8000
+        runtime: docker
+      - name: Gitea
+        port: 3000
+        runtime: docker
+    interfaces:
+      ethernet:
+        count: 1
+        speed: 2.5G
+
+  - id: home-nas
+    name: home-nas
+    type: nas
+    ip: 192.168.1.20
+    network: home-lan
+    group: home-site
+    specs:
+      storage: 4× 4 TB HDD
+    services:
+      - name: Tailscale
+        port: 41641
+        runtime: native
+      - name: Syncthing
+        port: 8384
+        runtime: native
+    interfaces:
+      ethernet:
+        count: 1
+        speed: 1G
+
+  - id: remote-pi
+    name: remote-pi
+    type: sbc
+    ip: 192.168.5.10
+    network: remote-lan
+    group: remote-site
+    tags:
+      - PARENTS HOUSE
+    specs:
+      cpu: Raspberry Pi 5
+      ram: 8 GB
+      storage: 256 GB SSD
+      os: Raspberry Pi OS
+    services:
+      - name: Tailscale
+        port: 41641
+        runtime: native
+      - name: Syncthing
+        port: 8384
+        runtime: native
+    interfaces:
+      ethernet:
+        count: 1
+        speed: 1G
+
+  - id: phone
+    name: my-phone
+    type: phone
+    network: tailnet
+    group: vpn-mesh
+    tags:
+      - ANDROID
+    services:
+      - name: Tailscale
+        runtime: native
+
+connections:
+  - from: home-router
+    to: home-server
+    fromPort: LAN1
+    type: ethernet
+    speed: 2.5G
+  - from: home-router
+    to: home-nas
+    fromPort: LAN2
+    type: ethernet
+    speed: 1G
+
+  # Tailscale mesh — every node connects to every other via Tailscale.
+  # Visualised here as VPN connections through the mesh group.
+  - from: home-server
+    to: remote-pi
+    type: vpn
+    label: tailscale
+  - from: home-server
+    to: phone
+    type: vpn
+    label: tailscale
+  - from: home-nas
+    to: remote-pi
+    type: vpn
+    label: tailscale
+  - from: remote-pi
+    to: phone
+    type: vpn
+    label: tailscale

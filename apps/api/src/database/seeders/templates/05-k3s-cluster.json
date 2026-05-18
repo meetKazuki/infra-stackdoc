@@ -1,0 +1,7 @@
+{
+  "slug": "k3s-cluster",
+  "title": "k3s Cluster on Mini-PCs",
+  "description": "k3s cluster on three Intel N305 mini-PCs with ArgoCD, Traefik, and an NFS server for persistent volumes.",
+  "category": "virtualization",
+  "tags": ["KUBERNETES", "K3S", "GITOPS"]
+}

@@ -1,0 +1,7 @@
+{
+  "slug": "tailscale-distributed",
+  "title": "Distributed Homelab with Tailscale",
+  "description": "Home Linux server and parents'-house Raspberry Pi 5 connected via Tailscale mesh, with Syncthing for cross-site backup.",
+  "category": "networking",
+  "tags": ["TAILSCALE", "DISTRIBUTED", "VPN"]
+}
