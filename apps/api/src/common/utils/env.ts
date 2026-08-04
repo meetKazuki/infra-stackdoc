@@ -19,7 +19,7 @@ class EnvManager {
   getValue(key: string, defaultValue?: string): string {
     const envVal = this.env[key] ?? defaultValue
 
-    if (!envVal) {
+    if (envVal === undefined) {
       throw new Error(`Env variable "${key}" should be defined`)
     }
 

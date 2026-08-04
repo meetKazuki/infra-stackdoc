@@ -44,15 +44,18 @@ cd infra-stackdoc
 
 make install        # pnpm install across the workspace
 make infra          # start Postgres in Docker (one container)
-make dev            # start web (5173) and api (3000) in parallel
+make dev            # start web (5173) and api (8087) in parallel
 ```
 
-Open <http://localhost:5173>.
+Open <http://stackdoc.localhost:5173> (not plain `localhost` — the api's CORS/OAuth config is
+pinned to the `stackdoc.localhost` origin by default; `.localhost` resolves to loopback with no
+extra setup).
 
 ### Requirements
 
-- Node.js `>=20`
-- pnpm `>=8`
+- Node.js `24` (pinned in `.nvmrc`, matches CI and the Docker build; `packages/core`'s test
+  suite hits a `node:util` incompatibility on Node 20.12 and needs 24 to run)
+- pnpm `8.6.1` (pinned in CI's `setup-repo` action)
 - Docker (for the bundled Postgres; you can also point at any existing Postgres instance via env vars)
 
 ## A minimal config
