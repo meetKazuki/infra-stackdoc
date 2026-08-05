@@ -49,9 +49,14 @@ changelog.
   above.
 - CI (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `build`, and `test` on every PR.
   All four are required status checks on `master`.
-- Feature branches into `develop` merge as a **merge commit** (not squash) — this is observed
-  practice, preserving individual commit messages, which matters for release-please's
-  per-commit parsing described above.
+- Feature branches into `develop` merge via **squash** — one clean commit per feature, using
+  the PR title as the commit message, folding away in-branch noise (wip, typo fixes, review
+  follow-ups). Use a conventional-commit-formatted PR title, since it becomes the commit that
+  release-please will eventually see.
+- `develop → master` PRs still merge as a **merge commit** (not squash) — this preserves each
+  feature's individual commit on `master`, which is what release-please parses per-commit for
+  versioning and changelog sections. Squashing this direction would collapse an entire release
+  into one commit and break that per-feature categorization.
 - No required human approvals — this is a small-maintainer project and branch protection is
   configured with 0 required reviewers. Admin bypass stays on for emergencies.
 
