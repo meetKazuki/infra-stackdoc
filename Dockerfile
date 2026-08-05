@@ -2,6 +2,13 @@
 FROM node:24-alpine AS deps
 WORKDIR /app
 
+# Coolify passes the application's runtime NODE_ENV into the build environment too.
+# pnpm skips devDependencies when NODE_ENV=production, breaking the husky prepare
+# hook and the build tooling (@nestjs/cli, @swc/cli, vite) further down — none of
+# that belongs to the runtime image anyway. Force it back for every build stage;
+# the api stage sets its own NODE_ENV=production for the actual runtime image.
+ENV NODE_ENV=development
+
 RUN corepack enable && corepack prepare pnpm@8.6.1 --activate
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
