@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0](https://github.com/thatkazuk1/infra-stackdoc/compare/v0.5.0...v0.6.0) (2026-08-05)
+
+
+### Features
+
+* **web:** env-aware page title, drop HSTS on the web container ([#67](https://github.com/thatkazuk1/infra-stackdoc/issues/67)) ([54a9c8b](https://github.com/thatkazuk1/infra-stackdoc/commit/54a9c8b62f2ceeed3eb864dd90e6b748831d99f5))
+
+
+### Bug Fixes
+
+* force NODE_ENV=development for docker build stages ([6dda1bb](https://github.com/thatkazuk1/infra-stackdoc/commit/6dda1bbf718f5a860be002f0b4856687fc5f0575))
+* force NODE_ENV=development for docker build stages ([0199161](https://github.com/thatkazuk1/infra-stackdoc/commit/0199161b0921f7130e3556370120676955f5b3d1))
+* unblock api Coolify deploy — env defaults and healthcheck path ([#66](https://github.com/thatkazuk1/infra-stackdoc/issues/66)) ([d250043](https://github.com/thatkazuk1/infra-stackdoc/commit/d2500436af0b52be0c35f3d7a706698dfc78c063))
+
 ## [0.5.0](https://github.com/meetKazuki/infra-stackdoc/compare/v0.4.0...v0.5.0) (2026-05-18)
 
 
