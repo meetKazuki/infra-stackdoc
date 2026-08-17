@@ -16,6 +16,9 @@ dist-ssr
 # Environment / AI working files
 .env
 CLAUDE.md
+.claude/
+.gemini/
+GEMINI.md
 
 # Editor directories and files
 .vscode/*
