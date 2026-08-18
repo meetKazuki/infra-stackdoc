@@ -9,7 +9,6 @@ const logger = new Logger('Server')
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
 
-  app.setGlobalPrefix('api')
   app.enableCors({
     origin: config().client.url,
     credentials: true,

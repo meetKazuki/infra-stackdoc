@@ -19,13 +19,13 @@ for local development. This page lists what each var controls and its default, s
 | `JWT_SECRET` | `stackdoc-dev-secret-change-in-production` | Dev-only fallback — set a real secret for any non-local deployment. |
 | `JWT_EXPIRES_IN` | `7d` | Token lifetime. |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | empty | Required for GitHub OAuth sign-in to work; unset disables sign-in, not the rest of the app. |
-| `GITHUB_CALLBACK_URL` | `http://stackdoc.localhost:8087/api/auth/github/callback` | Must match the OAuth app's configured callback in GitHub. |
+| `GITHUB_CALLBACK_URL` | `http://stackdoc.localhost:8087/auth/github/callback` | Must match one of the OAuth app's explicit registered callback URLs in GitHub — one per environment, wildcard matching off. |
 
 ## `apps/web`
 
 | Variable | Default | Notes |
 |---|---|---|
-| `VITE_API_URL` | `/api` | Relative by default — proxied to the api by Vite in dev (`apps/web/vite.config.ts`) and by the reverse proxy in production. Only needs overriding if the web and api are served from different origins. |
+| `VITE_API_URL` | `http://stackdoc.localhost:8087` | The api lives on its own subdomain (not a path under the web app), so this must be an absolute URL — set per environment (e.g. `https://stackdoc-api.kazuki.uk` in prod). Baked in at build time, like all Vite env vars. |
 | `VITE_DOCS_URL` | `http://stackdoc.localhost:3001` | The docs site lives on its own subdomain (not a path under the web app), so this must be an absolute URL — set per environment (e.g. `https://stackdoc-docs.kazuki.uk` in prod). Baked in at build time, like all Vite env vars. |
 
 ## Prod schema note
