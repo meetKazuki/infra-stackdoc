@@ -34,7 +34,7 @@ build-packages:
 	$(PNPM) --filter "./packages/**" run build
 
 build: build-packages
-	$(PNPM) --filter "./apps/**" run build
+	$(PNPM) --filter "./apps/**" --filter "./docs" run build
 
 typecheck: build-packages
 	$(PNPM) --recursive --if-present run typecheck
@@ -51,13 +51,16 @@ clean:
 # ==========================================
 
 dev: build-packages
-	$(PNPM) --filter "./apps/**" --parallel run dev
+	$(PNPM) --filter "./apps/**" --filter "./docs" --parallel run dev
 
 dev-api: build-packages ## Start the api server
 	$(PNPM) --filter "@homelab-stackdoc/api" run dev
 
 dev-web: build-packages ## Start the web server
 	$(PNPM) --filter "./apps/web" run dev
+
+dev-docs: ## Start the docs server
+	$(PNPM) --filter "./docs" run dev
 
 # ==========================================
 # Linting && Formatting

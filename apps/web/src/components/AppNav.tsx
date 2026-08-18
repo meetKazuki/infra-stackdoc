@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { colors, fonts } from '@homelab-stackdoc/renderer'
 import { UserMenu } from './UserMenu'
 
+const DOCS_URL = import.meta.env.VITE_DOCS_URL || 'http://stackdoc.localhost:3001'
+
 interface AppNavProps {
   title?: string
   kicker?: string
@@ -58,6 +60,31 @@ const ExternalNavLink: React.FC<{ href: string; title?: string; children: React.
     style={{
       display: 'flex',
       alignItems: 'center',
+      color: colors.textSecondary,
+      fontFamily: fonts.mono,
+      fontSize: 11,
+      letterSpacing: '0.04em',
+      textDecoration: 'none',
+      padding: '4px 0',
+    }}
+  >
+    {children}
+  </a>
+)
+
+// Plain same-tab anchor for destinations outside the SPA's router (e.g. the docs site,
+// served on its own subdomain) — a react-router NavLink would try to client-side navigate
+// to a route that doesn't exist.
+const SiteLink: React.FC<{ href: string; children: React.ReactNode }> = ({ href, children }) => (
+  <a
+    href={href}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.color = colors.primary
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.color = colors.textSecondary
+    }}
+    style={{
       color: colors.textSecondary,
       fontFamily: fonts.mono,
       fontSize: 11,
@@ -189,9 +216,7 @@ export const AppNav: React.FC<AppNavProps> = ({ title, kicker, primaryAction }) 
       </ExternalNavLink>
       <NavLink to="/templates">templates</NavLink>
       <NavLink to="/gallery">gallery</NavLink>
-      <ExternalNavLink href="https://github.com/thatkazuk1/infra-stackdoc#readme">
-        docs
-      </ExternalNavLink>
+      <SiteLink href={DOCS_URL}>docs</SiteLink>
     </nav>
 
     {primaryAction ?? <DefaultNewDiagramButton />}
