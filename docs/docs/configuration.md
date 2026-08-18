@@ -26,6 +26,7 @@ for local development. This page lists what each var controls and its default, s
 | Variable | Default | Notes |
 |---|---|---|
 | `VITE_API_URL` | `/api` | Relative by default — proxied to the api by Vite in dev (`apps/web/vite.config.ts`) and by the reverse proxy in production. Only needs overriding if the web and api are served from different origins. |
+| `VITE_DOCS_URL` | `http://stackdoc.localhost:3001` | The docs site lives on its own subdomain (not a path under the web app), so this must be an absolute URL — set per environment (e.g. `https://stackdoc-docs.kazuki.uk` in prod). Baked in at build time, like all Vite env vars. |
 
 ## Prod schema note
 

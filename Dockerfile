@@ -68,22 +68,23 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 FROM nginx:alpine AS docs
 
-RUN apk add --no-cache curl && rm -rf /usr/share/nginx/html/*
-COPY --from=docs-builder /app/docs/build /usr/share/nginx/html/docs
+RUN apk add --no-cache curl
+COPY --from=docs-builder /app/docs/build /usr/share/nginx/html
 
 COPY <<'EOF' /etc/nginx/conf.d/default.conf
 server {
     listen 80;
     server_name _;
     root /usr/share/nginx/html;
+    index index.html;
 
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    location /docs/ {
-        try_files $uri $uri/ /docs/index.html;
+    location / {
+        try_files $uri $uri/ /index.html;
     }
 
     gzip on;
@@ -93,7 +94,7 @@ EOF
 
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:80/docs/ || exit 1
+    CMD curl -f http://localhost:80/ || exit 1
 
 FROM node:24-alpine AS api
 WORKDIR /app

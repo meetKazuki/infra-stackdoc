@@ -78,7 +78,7 @@ model.
 
 The full schema lives in [`packages/core/src/types.ts`](packages/core/src/types.ts) and is
 documented in full — every top-level section, plus a worked example — in the
-[Schema Reference docs](https://stackdoc.kazuki.uk/docs/schema-reference).
+[Schema Reference docs](https://stackdoc-docs.kazuki.uk/schema-reference).
 
 ## Architecture
 
@@ -163,7 +163,7 @@ pinned to the `stackdoc.localhost` origin by default; `.localhost` resolves to l
 extra setup).
 
 Full setup detail, testing commands, and the Node-version gotcha are in the
-[Installation & Development docs](https://stackdoc.kazuki.uk/docs/installation).
+[Installation & Development docs](https://stackdoc-docs.kazuki.uk/installation).
 
 ## How to Get Help
 

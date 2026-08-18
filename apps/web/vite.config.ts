@@ -36,11 +36,6 @@ export default defineConfig({
         target: 'http://stackdoc.localhost:8087',
         changeOrigin: true,
       },
-      '/docs': {
-        target: 'http://stackdoc.localhost:3001',
-        changeOrigin: true,
-        ws: true,
-      },
     },
   },
 })

@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { colors, fonts } from '@homelab-stackdoc/renderer'
 import { UserMenu } from './UserMenu'
 
+const DOCS_URL = import.meta.env.VITE_DOCS_URL || 'http://stackdoc.localhost:3001'
+
 interface AppNavProps {
   title?: string
   kicker?: string
@@ -70,9 +72,9 @@ const ExternalNavLink: React.FC<{ href: string; title?: string; children: React.
   </a>
 )
 
-// Plain same-tab anchor for paths outside the SPA's router (e.g. /docs, served by a
-// separate app behind the reverse proxy) — a react-router NavLink would try to client-side
-// navigate to a route that doesn't exist.
+// Plain same-tab anchor for destinations outside the SPA's router (e.g. the docs site,
+// served on its own subdomain) — a react-router NavLink would try to client-side navigate
+// to a route that doesn't exist.
 const SiteLink: React.FC<{ href: string; children: React.ReactNode }> = ({ href, children }) => (
   <a
     href={href}
@@ -214,7 +216,7 @@ export const AppNav: React.FC<AppNavProps> = ({ title, kicker, primaryAction }) 
       </ExternalNavLink>
       <NavLink to="/templates">templates</NavLink>
       <NavLink to="/gallery">gallery</NavLink>
-      <SiteLink href="/docs">docs</SiteLink>
+      <SiteLink href={DOCS_URL}>docs</SiteLink>
     </nav>
 
     {primaryAction ?? <DefaultNewDiagramButton />}

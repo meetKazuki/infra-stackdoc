@@ -11,8 +11,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://stackdoc.kazuki.uk',
-  baseUrl: '/docs/',
+  url: 'https://stackdoc-docs.kazuki.uk',
+  baseUrl: '/',
 
   organizationName: 'thatkazuk1',
   projectName: 'infra-stackdoc',
