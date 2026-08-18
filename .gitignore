@@ -13,6 +13,13 @@ dist-ssr
 *.local
 *.tsbuildinfo
 
+# Environment / AI working files
+.env
+CLAUDE.md
+.claude/
+.gemini/
+GEMINI.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

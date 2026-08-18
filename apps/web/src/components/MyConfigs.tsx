@@ -98,7 +98,7 @@ export const MyConfigs: React.FC = () => {
   if (fatal) {
     return (
       <div style={{ padding: 24 }}>
-        <FatalError source="/api/configs/user/me" status={fatal.status} onRetry={load} />
+        <FatalError source="/configs/user/me" status={fatal.status} onRetry={load} />
       </div>
     )
   }

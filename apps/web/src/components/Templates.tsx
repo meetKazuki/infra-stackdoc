@@ -90,7 +90,7 @@ export const Templates: React.FC = () => {
         // Anonymous path: don't persist anything yet. Just preload the YAML
         // into the editor; the user can choose to save (and sign in) later.
         const detail = await fetchTemplate(template.slug)
-        navigate('/', { state: { yaml: detail.yaml } })
+        navigate('/editor', { state: { yaml: detail.yaml } })
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to use template')
@@ -103,7 +103,7 @@ export const Templates: React.FC = () => {
       <CategoryFilter selected={category} onSelect={setCategory} />
 
       {fatal && (
-        <FatalError source="/api/templates" status={fatal.status} onRetry={() => load(category)} />
+        <FatalError source="/templates" status={fatal.status} onRetry={() => load(category)} />
       )}
 
       {!fatal && error && (

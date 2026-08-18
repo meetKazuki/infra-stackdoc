@@ -135,9 +135,7 @@ export const Gallery: React.FC = () => {
 
       <ResultsMeta items={items.length} total={total} loading={loading} />
 
-      {fatal && (
-        <FatalError source="/api/gallery" status={fatal.status} onRetry={() => load(page)} />
-      )}
+      {fatal && <FatalError source="/gallery" status={fatal.status} onRetry={() => load(page)} />}
 
       {!fatal && error && (
         <div style={{ color: colors.red, fontFamily: fonts.mono, fontSize: 12, padding: 16 }}>

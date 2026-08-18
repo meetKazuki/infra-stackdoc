@@ -19,7 +19,7 @@ const config = (): Config => ({
       clientSecret: getEnvironmentValue('GITHUB_CLIENT_SECRET', ''),
       callbackUrl: getEnvironmentValue(
         'GITHUB_CALLBACK_URL',
-        'http://stackdoc.localhost:8087/api/auth/github/callback',
+        'http://stackdoc.localhost:8087/auth/github/callback',
       ),
     },
   },
