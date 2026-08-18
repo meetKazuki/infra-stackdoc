@@ -34,6 +34,10 @@ const config = (): Config => ({
   client: {
     url: getEnvironmentValue('CLIENT_URL', 'http://stackdoc.localhost:5173'),
   },
+
+  githubStats: {
+    token: getEnvironmentValue('GITHUB_STATS_TOKEN', ''),
+  },
 })
 
 export default config

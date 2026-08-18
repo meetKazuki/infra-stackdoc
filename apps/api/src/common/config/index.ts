@@ -33,6 +33,10 @@ interface Config {
   client: {
     url: string
   }
+
+  githubStats: {
+    token: string
+  }
 }
 
 const environment = getEnvironmentValue('NODE_ENV', Environment.LOCAL) as Environment

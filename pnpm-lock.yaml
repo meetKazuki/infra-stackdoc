@@ -132,6 +132,9 @@ importers:
       ts-essentials:
         specifier: ^10.1.1
         version: 10.1.1(typescript@6.0.3)
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.0(@types/node@24.0.0)(vite@8.0.9)
 
   apps/web:
     dependencies:
@@ -257,7 +260,7 @@ importers:
         version: 4.0.9
       vitest:
         specifier: ^4.1.0
-        version: 4.1.0(vite@8.0.9)
+        version: 4.1.0(@types/node@24.0.0)(vite@8.0.9)
 
   packages/renderer:
     dependencies:
@@ -273,7 +276,7 @@ importers:
         version: 18.3.0
       vitest:
         specifier: ^4.1.0
-        version: 4.1.0(vite@8.0.9)
+        version: 4.1.0(@types/node@24.0.0)(vite@8.0.9)
 
 packages:
 
@@ -6797,7 +6800,7 @@ packages:
       '@vitest/spy': 4.1.0
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 8.0.9
+      vite: 8.0.9(@types/node@24.0.0)
     dev: true
 
   /@vitest/pretty-format@4.1.0:
@@ -16201,7 +16204,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vite@8.0.9:
+  /vite@8.0.9(@types/node@24.0.0):
     resolution: {integrity: sha512-t7g7GVRpMXjNpa67HaVWI/8BWtdVIQPCL2WoozXXA7LBGEFK4AkkKkHx2hAQf5x1GZSlcmEDPkVLSGahxnEEZw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
@@ -16244,6 +16247,7 @@ packages:
       yaml:
         optional: true
     dependencies:
+      '@types/node': 24.0.0
       lightningcss: 1.32.0
       picomatch: 4.0.4
       postcss: 8.5.10
@@ -16253,7 +16257,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vitest@4.1.0(vite@8.0.9):
+  /vitest@4.1.0(@types/node@24.0.0)(vite@8.0.9):
     resolution: {integrity: sha512-YbDrMF9jM2Lqc++2530UourxZHmkKLxrs4+mYhEwqWS97WJ7wOYEkcr+QfRgJ3PW9wz3odRijLZjHEaRLTNbqw==}
     engines: {node: ^20.0.0 || ^22.0.0 || >=24.0.0}
     hasBin: true
@@ -16288,6 +16292,7 @@ packages:
       jsdom:
         optional: true
     dependencies:
+      '@types/node': 24.0.0
       '@vitest/expect': 4.1.0
       '@vitest/mocker': 4.1.0(vite@8.0.9)
       '@vitest/pretty-format': 4.1.0
@@ -16306,7 +16311,7 @@ packages:
       tinyexec: 1.1.1
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 8.0.9
+      vite: 8.0.9(@types/node@24.0.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw

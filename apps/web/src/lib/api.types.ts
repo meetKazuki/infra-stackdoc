@@ -96,6 +96,11 @@ interface GalleryQuery {
   limit?: number
 }
 
+interface GithubStats {
+  stars: number | null
+  forks: number | null
+}
+
 export {
   SharedConfig,
   CreateConfigResponse,
@@ -109,4 +114,5 @@ export {
   GalleryListResponse,
   GalleryQuery,
   GallerySort,
+  GithubStats,
 }

@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { colors, fonts } from '@homelab-stackdoc/renderer'
+import { fetchGithubStats } from '../lib/api'
 import { UserMenu } from './UserMenu'
 
 const DOCS_URL = import.meta.env.VITE_DOCS_URL || 'http://stackdoc.localhost:3001'
@@ -135,6 +136,39 @@ const DefaultNewDiagramButton: React.FC = () => {
   )
 }
 
+// Compact numeric formatting for the star/fork counts (1234 -> "1.2k"), keeps the badge from
+// pushing the header layout around once real counts come in.
+function formatCount(n: number): string {
+  if (n < 1000) return String(n)
+  return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`
+}
+
+const GithubBadge: React.FC = () => {
+  const [stats, setStats] = useState<{ stars: number; forks: number } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    fetchGithubStats().then((result) => {
+      if (cancelled || !result || result.stars === null || result.forks === null) return
+      setStats({ stars: result.stars, forks: result.forks })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (!stats) return null
+
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 6 }}>
+      <span>★ {formatCount(stats.stars)}</span>
+      <span>⑂ {formatCount(stats.forks)}</span>
+    </span>
+  )
+}
+
 export const AppNav: React.FC<AppNavProps> = ({ title, kicker, primaryAction }) => (
   <header
     style={{
@@ -213,6 +247,7 @@ export const AppNav: React.FC<AppNavProps> = ({ title, kicker, primaryAction }) 
     <nav style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
       <ExternalNavLink href="https://github.com/thatkazuk1/infra-stackdoc" title="github">
         <GithubIcon />
+        <GithubBadge />
       </ExternalNavLink>
       <NavLink to="/templates">templates</NavLink>
       <NavLink to="/gallery">gallery</NavLink>
