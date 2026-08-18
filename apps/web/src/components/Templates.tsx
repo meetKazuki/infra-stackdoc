@@ -103,7 +103,7 @@ export const Templates: React.FC = () => {
       <CategoryFilter selected={category} onSelect={setCategory} />
 
       {fatal && (
-        <FatalError source="/api/templates" status={fatal.status} onRetry={() => load(category)} />
+        <FatalError source="/templates" status={fatal.status} onRetry={() => load(category)} />
       )}
 
       {!fatal && error && (
