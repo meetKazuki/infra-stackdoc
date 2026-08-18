@@ -16,7 +16,7 @@ COPY tsconfig.json ./
 
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
-COPY apps/docs/package.json apps/docs/
+COPY docs/package.json docs/
 COPY packages/core/package.json packages/core/
 COPY packages/renderer/package.json packages/renderer/
 
@@ -69,7 +69,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 FROM nginx:alpine AS docs
 
 RUN apk add --no-cache curl && rm -rf /usr/share/nginx/html/*
-COPY --from=docs-builder /app/apps/docs/build /usr/share/nginx/html/docs
+COPY --from=docs-builder /app/docs/build /usr/share/nginx/html/docs
 
 COPY <<'EOF' /etc/nginx/conf.d/default.conf
 server {

@@ -31,7 +31,7 @@ const config: Config = {
         docs: {
           routeBasePath: '/',
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/thatkazuk1/infra-stackdoc/tree/develop/apps/docs/',
+          editUrl: 'https://github.com/thatkazuk1/infra-stackdoc/tree/develop/docs/',
         },
         blog: false,
         theme: {

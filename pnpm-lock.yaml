@@ -133,46 +133,6 @@ importers:
         specifier: ^10.1.1
         version: 10.1.1(typescript@6.0.3)
 
-  apps/docs:
-    dependencies:
-      '@docusaurus/core':
-        specifier: 3.10.2
-        version: 3.10.2(@docusaurus/faster@3.10.2)(@mdx-js/react@3.0.0)(@swc/core@1.16.0)(react-dom@19.0.0)(react@19.0.0)(typescript@6.0.3)
-      '@docusaurus/faster':
-        specifier: 3.10.2
-        version: 3.10.2(@docusaurus/types@3.10.2)
-      '@docusaurus/preset-classic':
-        specifier: 3.10.2
-        version: 3.10.2(@algolia/client-search@5.56.0)(@docusaurus/faster@3.10.2)(@mdx-js/react@3.0.0)(@swc/core@1.16.0)(@types/react@19.0.0)(react-dom@19.0.0)(react@19.0.0)(search-insights@2.17.3)(typescript@6.0.3)
-      '@mdx-js/react':
-        specifier: ^3.0.0
-        version: 3.0.0(@types/react@19.0.0)(react@19.0.0)
-      prism-react-renderer:
-        specifier: ^2.3.0
-        version: 2.3.0(react@19.0.0)
-      react:
-        specifier: ^19.0.0
-        version: 19.0.0
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.0.0(react@19.0.0)
-    devDependencies:
-      '@docusaurus/module-type-aliases':
-        specifier: 3.10.2
-        version: 3.10.2(@swc/core@1.16.0)(react-dom@19.0.0)(react@19.0.0)
-      '@docusaurus/tsconfig':
-        specifier: 3.10.2
-        version: 3.10.2
-      '@docusaurus/types':
-        specifier: 3.10.2
-        version: 3.10.2(@swc/core@1.16.0)(react-dom@19.0.0)(react@19.0.0)
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.0.0
-      typescript:
-        specifier: ~6.0.2
-        version: 6.0.3
-
   apps/web:
     dependencies:
       '@codemirror/autocomplete':
@@ -245,6 +205,46 @@ importers:
       vite:
         specifier: ^5.4.0
         version: 5.4.0(@types/node@24.0.0)
+
+  docs:
+    dependencies:
+      '@docusaurus/core':
+        specifier: 3.10.2
+        version: 3.10.2(@docusaurus/faster@3.10.2)(@mdx-js/react@3.0.0)(@swc/core@1.16.0)(react-dom@19.0.0)(react@19.0.0)(typescript@6.0.3)
+      '@docusaurus/faster':
+        specifier: 3.10.2
+        version: 3.10.2(@docusaurus/types@3.10.2)
+      '@docusaurus/preset-classic':
+        specifier: 3.10.2
+        version: 3.10.2(@algolia/client-search@5.56.0)(@docusaurus/faster@3.10.2)(@mdx-js/react@3.0.0)(@swc/core@1.16.0)(@types/react@19.0.0)(react-dom@19.0.0)(react@19.0.0)(search-insights@2.17.3)(typescript@6.0.3)
+      '@mdx-js/react':
+        specifier: ^3.0.0
+        version: 3.0.0(@types/react@19.0.0)(react@19.0.0)
+      prism-react-renderer:
+        specifier: ^2.3.0
+        version: 2.3.0(react@19.0.0)
+      react:
+        specifier: ^19.0.0
+        version: 19.0.0
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.0.0(react@19.0.0)
+    devDependencies:
+      '@docusaurus/module-type-aliases':
+        specifier: 3.10.2
+        version: 3.10.2(@swc/core@1.16.0)(react-dom@19.0.0)(react@19.0.0)
+      '@docusaurus/tsconfig':
+        specifier: 3.10.2
+        version: 3.10.2
+      '@docusaurus/types':
+        specifier: 3.10.2
+        version: 3.10.2(@swc/core@1.16.0)(react-dom@19.0.0)(react@19.0.0)
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.0.0
+      typescript:
+        specifier: ~6.0.2
+        version: 6.0.3
 
   packages/core:
     dependencies:
@@ -778,6 +778,7 @@ packages:
   /@babel/helper-plugin-utils@7.28.6:
     resolution: {integrity: sha512-S9gzZ/bz83GRysI7gAD4wPT/AI3uCnY+9xn+Mx/KPs2JwHJIz1W8PZkg2cqyt3RNOBM8ejcXhV6y8Og7ly/Dug==}
     engines: {node: '>=6.9.0'}
+    dev: true
 
   /@babel/helper-plugin-utils@7.29.7:
     resolution: {integrity: sha512-G7sHYigPY17oO5SYWnfD/0MTBwVR781S/JI643e/JhUYgVgWE/61SoW3NH9KWUKyKq5LVh3npif99Wkt6j86Jw==}
@@ -970,7 +971,7 @@ packages:
       '@babel/core': ^7.0.0-0
     dependencies:
       '@babel/core': 7.29.0
-      '@babel/helper-plugin-utils': 7.28.6
+      '@babel/helper-plugin-utils': 7.29.7
     dev: false
 
   /@babel/plugin-syntax-import-assertions@7.29.7(@babel/core@7.29.0):
@@ -1813,7 +1814,7 @@ packages:
     dependencies:
       '@babel/core': 7.29.0
       '@babel/helper-plugin-utils': 7.29.7
-      '@babel/types': 7.29.0
+      '@babel/types': 7.29.8
       esutils: 2.0.3
     dev: false
 
@@ -2618,14 +2619,14 @@ packages:
     engines: {node: '>=20.0'}
     dependencies:
       '@babel/core': 7.29.0
-      '@babel/generator': 7.29.1
+      '@babel/generator': 7.29.8
       '@babel/plugin-syntax-dynamic-import': 7.8.3(@babel/core@7.29.0)
       '@babel/plugin-transform-runtime': 7.29.7(@babel/core@7.29.0)
       '@babel/preset-env': 7.29.7(@babel/core@7.29.0)
       '@babel/preset-react': 7.29.7(@babel/core@7.29.0)
       '@babel/preset-typescript': 7.29.7(@babel/core@7.29.0)
       '@babel/runtime': 7.29.7
-      '@babel/traverse': 7.29.0
+      '@babel/traverse': 7.29.8
       '@docusaurus/logger': 3.10.2
       '@docusaurus/utils': 3.10.2(@swc/core@1.16.0)(react-dom@19.0.0)(react@19.0.0)
       babel-plugin-dynamic-import-node: 2.3.3
@@ -2787,7 +2788,7 @@ packages:
       '@rspack/core': 1.7.12
       '@swc/core': 1.16.0
       '@swc/html': 1.16.0
-      browserslist: 4.28.2
+      browserslist: 4.28.8
       lightningcss: 1.32.0
       semver: 7.7.4
       swc-loader: 0.2.7(@swc/core@1.16.0)(webpack@5.97.1)
@@ -7526,7 +7527,6 @@ packages:
     resolution: {integrity: sha512-FwMjJJ7HnyZpWe+oWxegG0fezZyBZUagI5LZEoO3GCbtbKNwRfMH9Ue5d5v01PNePBy1QSfPSDTTeVL0Hb9EzA==}
     engines: {node: '>=6.0.0'}
     hasBin: true
-    dev: false
 
   /batch@0.6.1:
     resolution: {integrity: sha512-x+VAiMRL6UPkx+kudNvxTl6hB2XNNCG2r+7wixVfIYwu/2HKRXimwQyaumLjMveWvT2Hkd/cAJw+QBMfJ/EKVw==}
@@ -7706,7 +7706,6 @@ packages:
       electron-to-chromium: 1.5.409
       node-releases: 2.0.53
       update-browserslist-db: 1.3.1(browserslist@4.28.8)
-    dev: false
 
   /buffer-crc32@0.2.13:
     resolution: {integrity: sha512-VO9Ht/+p3SN7SKWqcrgEzjGbRSJYTx+Q1pTQC0wrWqHx0vpJraQ6GtHx8tvcg1rlK1byhU5gccxgOgj7B0TDkQ==}
@@ -7855,7 +7854,6 @@ packages:
 
   /caniuse-lite@1.0.30001809:
     resolution: {integrity: sha512-xxWVywk6a6Arlk+hymeycyn/VgqEfLDxupvhH/xiY5SJ/18kmi9o6MiO320DCUzypORHLtvh0I4i04tUhCNHNQ==}
-    dev: false
 
   /ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -8962,7 +8960,6 @@ packages:
 
   /electron-to-chromium@1.5.409:
     resolution: {integrity: sha512-ChI4N44d0B4A6C8prnNjMOaGgE59fUyEVYcRYm2XEXIjMbbvF5i9UL1cblDbpGqiU0uS8FE8UcKxqZqTXdmzbQ==}
-    dev: false
 
   /emoji-regex@10.6.0:
     resolution: {integrity: sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A==}
@@ -12476,7 +12473,6 @@ packages:
   /node-releases@2.0.53:
     resolution: {integrity: sha512-D9UOmYG3UH1V+ENW56t5QXBwJw1YEY18ruVeus89Rw+SyIgjPkCO84bRzO3uNIYosJbNwiabWVn48o3uJLjxFQ==}
     engines: {node: '>=18'}
-    dev: false
 
   /normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
@@ -13647,7 +13643,7 @@ packages:
       '@csstools/postcss-trigonometric-functions': 4.0.9(postcss@8.5.10)
       '@csstools/postcss-unset-value': 4.0.0(postcss@8.5.10)
       autoprefixer: 10.5.4(postcss@8.5.10)
-      browserslist: 4.28.2
+      browserslist: 4.28.8
       css-blank-pseudo: 7.0.1(postcss@8.5.10)
       css-has-pseudo: 7.0.3(postcss@8.5.10)
       css-prefers-color-scheme: 10.0.0(postcss@8.5.10)
@@ -16057,7 +16053,6 @@ packages:
       browserslist: 4.28.8
       escalade: 3.2.0
       picocolors: 1.1.1
-    dev: false
 
   /update-notifier@6.0.2:
     resolution: {integrity: sha512-EDxhTEVPZZRLWYcJ4ZXjGFN0oP7qYvbXWzEgRm/Yql4dHX5wDbvh89YHP6PK1lzZJYrMtXUuZZz8XGK+U6U1og==}
@@ -16518,7 +16513,7 @@ packages:
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
       acorn: 8.16.0
-      browserslist: 4.28.2
+      browserslist: 4.28.8
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.20.1
       es-module-lexer: 1.7.0

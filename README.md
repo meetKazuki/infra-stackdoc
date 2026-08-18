@@ -23,7 +23,7 @@ Document your homelab as YAML. Render it as a live topology.
 
 ## About the Project
 
-![Homelab StackDoc Screenshot](docs/homelab-topology-screenshot.png)
+![Homelab StackDoc Screenshot](.github/assets/homelab-topology-screenshot.png)
 
 stackdoc turns a YAML description of your network and devices into an interactive topology
 diagram. The diagram updates as you edit. Configs are plain text — version them, fork them,
