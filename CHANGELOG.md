@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0](https://github.com/thatkazuk1/infra-stackdoc/compare/v0.6.0...v0.7.0) (2026-08-18)
+
+
+### Features
+
+* drop api global prefix for subdomain migration ([3576825](https://github.com/thatkazuk1/infra-stackdoc/commit/35768251c43cb5a1cf192d246a4833217d2f99a3))
+* stand up Docusaurus docs site at stackdoc-docs.kazuki.uk ([#77](https://github.com/thatkazuk1/infra-stackdoc/issues/77)) ([4f6a163](https://github.com/thatkazuk1/infra-stackdoc/commit/4f6a163fa423be5550ad04f2bcaa6ad1bcfc2f09))
+
+
+### Bug Fixes
+
+* close AppNav gaps and anonymous template-use redirect ([#76](https://github.com/thatkazuk1/infra-stackdoc/issues/76)) ([ab662e0](https://github.com/thatkazuk1/infra-stackdoc/commit/ab662e0035e94efe4dcab7f65862c3ef1a8246d7))
+
+
+### Documentation
+
+* add CONTRIBUTING.md, remap README, fix stale repo metadata ([24c9dc2](https://github.com/thatkazuk1/infra-stackdoc/commit/24c9dc2d6d6852de312ade5580fe6ab90084180a))
+* add CONTRIBUTING.md, remap README, fix stale repo metadata ([3186e82](https://github.com/thatkazuk1/infra-stackdoc/commit/3186e8296c96bb7cf58a1acf6f65edaa0ce744d4))
+* squash feature branches into develop, keep merge commit for develop-&gt;master ([#74](https://github.com/thatkazuk1/infra-stackdoc/issues/74)) ([df34bc2](https://github.com/thatkazuk1/infra-stackdoc/commit/df34bc2dd0479ba87458f26e01569534630534df))
+
 ## [0.6.0](https://github.com/thatkazuk1/infra-stackdoc/compare/v0.5.0...v0.6.0) (2026-08-05)
 
 
