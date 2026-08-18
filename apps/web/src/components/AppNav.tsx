@@ -39,14 +39,16 @@ const NavLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, chil
   )
 }
 
-const ExternalNavLink: React.FC<{ href: string; children: React.ReactNode }> = ({
+const ExternalNavLink: React.FC<{ href: string; title?: string; children: React.ReactNode }> = ({
   href,
+  title,
   children,
 }) => (
   <a
     href={href}
     target="_blank"
     rel="noopener noreferrer"
+    title={title}
     onMouseEnter={(e) => {
       e.currentTarget.style.color = colors.primary
     }}
@@ -54,6 +56,8 @@ const ExternalNavLink: React.FC<{ href: string; children: React.ReactNode }> = (
       e.currentTarget.style.color = colors.textSecondary
     }}
     style={{
+      display: 'flex',
+      alignItems: 'center',
       color: colors.textSecondary,
       fontFamily: fonts.mono,
       fontSize: 11,
@@ -64,6 +68,13 @@ const ExternalNavLink: React.FC<{ href: string; children: React.ReactNode }> = (
   >
     {children}
   </a>
+)
+
+// Octocat glyph — matches the icon UserMenu already uses for the GitHub OAuth button.
+const GithubIcon: React.FC = () => (
+  <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.4 3.6 1 .1-.8.4-1.4.8-1.7-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.3-3.2-.1-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.7-5.5 6 .5.4.9 1.1.9 2.3v3.4c0 .3.2.7.8.6A12 12 0 0012 .3" />
+  </svg>
 )
 
 const DefaultNewDiagramButton: React.FC = () => {
@@ -173,9 +184,14 @@ export const AppNav: React.FC<AppNavProps> = ({ title, kicker, primaryAction }) 
     <div style={{ flex: 1 }} />
 
     <nav style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
+      <ExternalNavLink href="https://github.com/thatkazuk1/infra-stackdoc" title="github">
+        <GithubIcon />
+      </ExternalNavLink>
       <NavLink to="/templates">templates</NavLink>
       <NavLink to="/gallery">gallery</NavLink>
-      <ExternalNavLink href="https://github.com/meetKazuki/infra-stackdoc">github</ExternalNavLink>
+      <ExternalNavLink href="https://github.com/thatkazuk1/infra-stackdoc#readme">
+        docs
+      </ExternalNavLink>
     </nav>
 
     {primaryAction ?? <DefaultNewDiagramButton />}
