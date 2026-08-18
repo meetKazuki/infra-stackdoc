@@ -59,6 +59,9 @@ dev-api: build-packages ## Start the api server
 dev-web: build-packages ## Start the web server
 	$(PNPM) --filter "./apps/web" run dev
 
+dev-docs: ## Start the docs server
+	$(PNPM) --filter "./apps/docs" run dev
+
 # ==========================================
 # Linting && Formatting
 # ==========================================

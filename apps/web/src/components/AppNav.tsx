@@ -70,6 +70,31 @@ const ExternalNavLink: React.FC<{ href: string; title?: string; children: React.
   </a>
 )
 
+// Plain same-tab anchor for paths outside the SPA's router (e.g. /docs, served by a
+// separate app behind the reverse proxy) — a react-router NavLink would try to client-side
+// navigate to a route that doesn't exist.
+const SiteLink: React.FC<{ href: string; children: React.ReactNode }> = ({ href, children }) => (
+  <a
+    href={href}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.color = colors.primary
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.color = colors.textSecondary
+    }}
+    style={{
+      color: colors.textSecondary,
+      fontFamily: fonts.mono,
+      fontSize: 11,
+      letterSpacing: '0.04em',
+      textDecoration: 'none',
+      padding: '4px 0',
+    }}
+  >
+    {children}
+  </a>
+)
+
 // Octocat glyph — matches the icon UserMenu already uses for the GitHub OAuth button.
 const GithubIcon: React.FC = () => (
   <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -189,9 +214,7 @@ export const AppNav: React.FC<AppNavProps> = ({ title, kicker, primaryAction }) 
       </ExternalNavLink>
       <NavLink to="/templates">templates</NavLink>
       <NavLink to="/gallery">gallery</NavLink>
-      <ExternalNavLink href="https://github.com/thatkazuk1/infra-stackdoc#readme">
-        docs
-      </ExternalNavLink>
+      <SiteLink href="/docs">docs</SiteLink>
     </nav>
 
     {primaryAction ?? <DefaultNewDiagramButton />}
