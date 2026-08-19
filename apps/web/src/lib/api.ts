@@ -2,6 +2,7 @@ import {
   CreateConfigResponse,
   GalleryListResponse,
   GalleryQuery,
+  GithubStats,
   MyConfig,
   SharedConfig,
   TemplateCategory,
@@ -224,6 +225,18 @@ async function deleteConfig(slug: string): Promise<void> {
   }
 }
 
+// Never throws — the nav badge falls back to the plain icon on any failure, so a network
+// error here should look identical to the endpoint's own graceful { stars: null, forks: null }.
+async function fetchGithubStats(): Promise<GithubStats | null> {
+  try {
+    const response = await fetch(`${API_BASE}/github/stats`)
+    if (!response.ok) return null
+    return await response.json()
+  } catch {
+    return null
+  }
+}
+
 export {
   AUTH_INVALIDATED,
   ApiError,
@@ -240,4 +253,5 @@ export {
   fetchGallery,
   updateConfig,
   deleteConfig,
+  fetchGithubStats,
 }

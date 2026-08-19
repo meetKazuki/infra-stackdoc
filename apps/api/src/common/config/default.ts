@@ -14,14 +14,6 @@ const config = (): Config => ({
       secret: getEnvironmentValue('JWT_SECRET', 'stackdoc-dev-secret-change-in-production'),
       expiresIn: getEnvironmentValue('JWT_EXPIRES_IN', '7d'),
     },
-    github: {
-      clientId: getEnvironmentValue('GITHUB_CLIENT_ID', ''),
-      clientSecret: getEnvironmentValue('GITHUB_CLIENT_SECRET', ''),
-      callbackUrl: getEnvironmentValue(
-        'GITHUB_CALLBACK_URL',
-        'http://stackdoc.localhost:8087/auth/github/callback',
-      ),
-    },
   },
 
   database: {
@@ -33,6 +25,18 @@ const config = (): Config => ({
 
   client: {
     url: getEnvironmentValue('CLIENT_URL', 'http://stackdoc.localhost:5173'),
+  },
+
+  github: {
+    oauth: {
+      clientId: getEnvironmentValue('GITHUB_CLIENT_ID', ''),
+      clientSecret: getEnvironmentValue('GITHUB_CLIENT_SECRET', ''),
+      callbackUrl: getEnvironmentValue(
+        'GITHUB_CALLBACK_URL',
+        'http://stackdoc.localhost:8087/auth/github/callback',
+      ),
+    },
+    statsToken: getEnvironmentValue('GITHUB_STATS_TOKEN', ''),
   },
 })
 
