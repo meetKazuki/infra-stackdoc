@@ -1,6 +1,6 @@
-interface GithubStats {
+interface GitHubStats {
   stars: number | null
   forks: number | null
 }
 
-export { type GithubStats }
+export { type GitHubStats }

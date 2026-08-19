@@ -1,9 +1,9 @@
 import { Controller, Get } from '@nestjs/common'
-import { GithubStatsService } from './github-stats.service'
+import { GitHubStatsService } from './github-stats.service'
 
 @Controller('github')
-class GithubStatsController {
-  constructor(private readonly githubStatsService: GithubStatsService) {}
+class GitHubStatsController {
+  constructor(private readonly githubStatsService: GitHubStatsService) {}
 
   @Get('stats')
   async getStats() {
@@ -11,4 +11,4 @@ class GithubStatsController {
   }
 }
 
-export { GithubStatsController }
+export { GitHubStatsController }

@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common'
-import { GithubStatsController } from './github-stats.controller'
-import { GithubStatsService } from './github-stats.service'
+import { GitHubStatsController } from './github-stats.controller'
+import { GitHubStatsService } from './github-stats.service'
+import { GitHubModule } from '@/providers/github/github.module'
 
 @Module({
-  controllers: [GithubStatsController],
-  providers: [GithubStatsService],
+  imports: [GitHubModule],
+  controllers: [GitHubStatsController],
+  providers: [GitHubStatsService],
 })
-class GithubStatsModule {}
+class GitHubStatsModule {}
 
-export { GithubStatsModule }
+export { GitHubStatsModule }
