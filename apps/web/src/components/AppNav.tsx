@@ -136,14 +136,75 @@ const DefaultNewDiagramButton: React.FC = () => {
   )
 }
 
-// Compact numeric formatting for the star/fork counts (1234 -> "1.2k"), keeps the badge from
+const GITHUB_URL = 'https://github.com/thatkazuk1/infra-stackdoc'
+
+// Compact numeric formatting for the star/fork counts (1234 -> "1.2k"), keeps the pill from
 // pushing the header layout around once real counts come in.
 function formatCount(n: number): string {
   if (n < 1000) return String(n)
   return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`
 }
 
-const GithubBadge: React.FC = () => {
+// Matches the "5.1 — LANDING" top-bar spec in the StackDoc design canvas
+// (claude.ai/design, project "StackDoc" — Design Direction.html / pages.jsx / LandingMock),
+// pulled 2026-08-19. Octocat + star-count pill, divider, fork-count — same icon paths as the
+// mock, not the plain nav GithubIcon above.
+const GithubStatsPill: React.FC<{ stars: number; forks: number }> = ({ stars, forks }) => (
+  <a
+    href={GITHUB_URL}
+    target="_blank"
+    rel="noopener noreferrer"
+    title="github"
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '4px 10px',
+      background: 'rgba(255, 255, 255, 0.06)',
+      border: `1px solid ${colors.border}`,
+      borderRadius: 5,
+      textDecoration: 'none',
+    }}
+  >
+    <svg width={16} height={16} viewBox="0 0 16 16" fill={colors.textPrimary} aria-hidden>
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        fontSize: 10,
+        color: colors.textPrimary,
+        fontWeight: 600,
+      }}
+    >
+      <svg width={11} height={11} viewBox="0 0 16 16" fill={colors.amber} aria-hidden>
+        <path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z" />
+      </svg>
+      {formatCount(stars)}
+    </span>
+    <span style={{ width: 1, height: 12, background: colors.border }} />
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        fontSize: 10,
+        color: colors.textSecondary,
+      }}
+    >
+      <svg width={11} height={11} viewBox="0 0 24 24" fill={colors.textSecondary} aria-hidden>
+        <path d="M9 3a3 3 0 00-1 5.83V12H6.5A2.5 2.5 0 014 9.5V8.83a3 3 0 10-2 0v.67A4.5 4.5 0 006.5 14H10v2.17a3 3 0 102 0V8.83A3 3 0 009 3z" />
+      </svg>
+      {formatCount(forks)}
+    </span>
+  </a>
+)
+
+// Fetches stats and swaps in the pill once loaded; falls back to the plain octocat link
+// (PR #76 state) on null/unavailable — no design spec exists for that state, so it stays as-is.
+const GithubNavItem: React.FC = () => {
   const [stats, setStats] = useState<{ stars: number; forks: number } | null>(null)
 
   useEffect(() => {
@@ -159,13 +220,12 @@ const GithubBadge: React.FC = () => {
     }
   }, [])
 
-  if (!stats) return null
+  if (stats) return <GithubStatsPill stars={stats.stars} forks={stats.forks} />
 
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 6 }}>
-      <span>★ {formatCount(stats.stars)}</span>
-      <span>⑂ {formatCount(stats.forks)}</span>
-    </span>
+    <ExternalNavLink href={GITHUB_URL} title="github">
+      <GithubIcon />
+    </ExternalNavLink>
   )
 }
 
@@ -245,10 +305,7 @@ export const AppNav: React.FC<AppNavProps> = ({ title, kicker, primaryAction }) 
     <div style={{ flex: 1 }} />
 
     <nav style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
-      <ExternalNavLink href="https://github.com/thatkazuk1/infra-stackdoc" title="github">
-        <GithubIcon />
-        <GithubBadge />
-      </ExternalNavLink>
+      <GithubNavItem />
       <NavLink to="/templates">templates</NavLink>
       <NavLink to="/gallery">gallery</NavLink>
       <SiteLink href={DOCS_URL}>docs</SiteLink>
