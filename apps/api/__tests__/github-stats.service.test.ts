@@ -3,7 +3,7 @@ import {
   GitHubStatsService,
   RETRY_BACKOFF_MS,
   TTL_MS,
-} from '@/modules/github-stats/github-stats.service'
+} from '@/modules/github/stats/github-stats.service'
 import { type GitHubService } from '@/providers/github/github.service'
 
 function fakeGithubService(getRepo: GitHubService['getRepo']): GitHubService {

@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { AuthModule } from './modules/auth/auth.module'
 import { ConfigsModule } from './modules/configs/configs.module'
-import { GitHubStatsModule } from './modules/github-stats/github-stats.module'
+import { GitHubFeatureModule } from './modules/github/github.module'
 import { TemplateModule } from './modules/templates/templates.module'
 import { UsersModule } from './modules/users/user.module'
 import { config } from '@/common/config'
@@ -18,7 +18,7 @@ import { SeedersModule } from '@/database/seeders/seeders.module'
 
     AuthModule,
     ConfigsModule,
-    GitHubStatsModule,
+    GitHubFeatureModule,
     TemplateModule,
     UsersModule,
   ],
