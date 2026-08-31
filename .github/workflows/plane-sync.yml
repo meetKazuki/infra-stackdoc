@@ -39,3 +39,5 @@ jobs:
             ${{ github.event.pull_request.title }}
 
             ${{ github.event.pull_request.body }}
+
+# Live-verified 2026-08-31: start-on-open and PR-linking both confirmed.
