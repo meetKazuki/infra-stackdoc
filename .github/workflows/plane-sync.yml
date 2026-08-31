@@ -9,7 +9,7 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - uses: thatkazuk1/plane-transition@v1.0.1
+      - uses: thatkazuk1/plane-transition@v1
         with:
           plane-base-url: https://plane.kazuki.uk
           plane-workspace-slug: shokunbi
@@ -20,6 +20,3 @@ jobs:
             ${{ github.event.pull_request.title }}
 
             ${{ github.event.pull_request.body }}
-
-# Verified live 2026-08-31: a merged PR referencing a HOMELABSTA-<n> ticket
-# transitions it to Done in Plane (v1.0.1, correct uses: ref).
