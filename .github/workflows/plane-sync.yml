@@ -1,0 +1,22 @@
+name: Plane sync
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  transition:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: thatkazuk1/plane-transition@sha256:42944d46ed6d9bcccb0e9190ca5370c65832bb6994f5fd47b140135848483d1f
+        with:
+          plane-base-url: https://plane.kazuki.uk
+          plane-workspace-slug: shokunbi
+          plane-api-token: ${{ secrets.PLANE_API_TOKEN }}
+          identifier-prefixes: HOMELABSTA
+          target-state: Done
+          text: |
+            ${{ github.event.pull_request.title }}
+
+            ${{ github.event.pull_request.body }}
