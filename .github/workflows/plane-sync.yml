@@ -20,3 +20,6 @@ jobs:
             ${{ github.event.pull_request.title }}
 
             ${{ github.event.pull_request.body }}
+
+# Verified live 2026-08-31: a merged PR referencing a HOMELABSTA-<n> ticket
+# transitions it to Done in Plane.
